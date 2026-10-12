@@ -29,6 +29,11 @@ function applyThemeToDocument(theme: Theme) {
     root.style.colorScheme = "light";
   }
 
+  if (document.body) {
+    document.body.style.backgroundColor = tokens.bgPrimary;
+    document.body.style.color = tokens.textPrimary;
+  }
+
   // Inject CSS Custom Properties
   root.style.setProperty("--bg-primary", tokens.bgPrimary);
   root.style.setProperty("--bg-secondary", tokens.bgSecondary);

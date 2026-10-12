@@ -94,7 +94,7 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
                 router.push(`/tasks?quickCreate=${encodeURIComponent(query)}`);
                 onClose();
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/20 hover:bg-[var(--accent-primary)]/20"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg bg-[var(--badge-bg)] text-[var(--accent-primary)] border border-[var(--border-focus)] hover:opacity-90"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Task: &quot;{query}&quot;</span>
@@ -114,7 +114,7 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
                   className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[var(--border)] text-left text-xs text-[var(--text-primary)] transition-colors group"
                 >
                   <span className="flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-[var(--input-bg)] group-hover:bg-[var(--accent-primary)]/15 group-hover:text-[var(--accent-primary)] text-[var(--text-muted)]">
+                    <div className="p-1.5 rounded-lg bg-[var(--input-bg)] group-hover:bg-[var(--badge-bg)] group-hover:text-[var(--accent-primary)] text-[var(--text-muted)]">
                       <Icon className="w-4 h-4" />
                     </div>
                     <span className="font-medium">{item.name}</span>

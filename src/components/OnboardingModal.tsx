@@ -110,7 +110,7 @@ export function OnboardingModal({ isOpen, onClose, onCompleted }: OnboardingModa
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in">
       <div className="w-full max-w-2xl bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* Modal Header */}
-        <div className="p-5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-primary)]/80">
+        <div className="p-5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-primary)]">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[var(--accent-primary)] text-[var(--accent-text)] flex items-center justify-center font-bold text-sm shadow-sm">
               <Sparkles className="w-4 h-4" />

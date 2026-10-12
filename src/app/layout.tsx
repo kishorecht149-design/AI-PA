@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   description:
     "Autonomous Multimodal Holographic Assistant System for academics, GATE/ESE preparation, systems research, and lifelong learning.",
   icons: {
-    icon: "/brand/favicon.svg",
-    apple: "/brand/amahas-symbol.svg",
+    icon: "/brand/favicon.png",
+    apple: "/brand/amahas-symbol.png",
   },
 };
 
@@ -49,7 +49,7 @@ export default async function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] antialiased transition-colors duration-150 selection:bg-[var(--accent-primary)]/20 selection:text-[var(--accent-primary)]">
+      <body className="bg-[#070b14] text-slate-100 antialiased selection:bg-cyan-500/20 selection:text-cyan-200">
         <ThemeProvider>
           <AppShell userName={userName}>{children}</AppShell>
         </ThemeProvider>

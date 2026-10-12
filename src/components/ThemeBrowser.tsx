@@ -44,8 +44,8 @@ function ThemePreviewCard({
       aria-label={`Select ${theme.name} theme`}
       className={`group relative flex flex-col rounded-2xl border p-4 cursor-pointer transition-all duration-200 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
         isActive
-          ? "border-[var(--accent-primary)] shadow-lg shadow-[var(--accent-primary)]/10 ring-1 ring-[var(--accent-primary)]"
-          : "border-[var(--border)] hover:border-[var(--border-focus)]/50 hover:bg-[var(--border)]/20"
+          ? "border-[var(--accent-primary)] shadow-lg ring-1 ring-[var(--accent-primary)]"
+          : "border-[var(--border)] hover:border-[var(--border-focus)]"
       }`}
       style={{ backgroundColor: tokens.bgSecondary }}
     >
@@ -284,8 +284,8 @@ export function ThemeBrowser() {
             onClick={() => setMode("manual")}
             className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
               mode === "manual"
-                ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 shadow-sm"
-                : "border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--border-focus)]/40"
+                ? "border-[var(--accent-primary)] bg-[var(--badge-bg)] shadow-sm"
+                : "border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--border-focus)]"
             }`}
           >
             <div className="p-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--accent-primary)]">
@@ -305,8 +305,8 @@ export function ThemeBrowser() {
             onClick={() => setMode("system")}
             className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
               mode === "system"
-                ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 shadow-sm"
-                : "border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--border-focus)]/40"
+                ? "border-[var(--accent-primary)] bg-[var(--badge-bg)] shadow-sm"
+                : "border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--border-focus)]"
             }`}
           >
             <div className="p-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--accent-primary)]">
@@ -326,8 +326,8 @@ export function ThemeBrowser() {
             onClick={() => setMode("time")}
             className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
               mode === "time"
-                ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 shadow-sm"
-                : "border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--border-focus)]/40"
+                ? "border-[var(--accent-primary)] bg-[var(--badge-bg)] shadow-sm"
+                : "border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--border-focus)]"
             }`}
           >
             <div className="p-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--accent-primary)]">

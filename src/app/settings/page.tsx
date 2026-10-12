@@ -284,7 +284,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowOnboarding(true)}
-                className="px-3 py-1.5 rounded-xl bg-[var(--accent-secondary)]/20 hover:bg-[var(--accent-secondary)]/30 text-[var(--text-primary)] border border-[var(--accent-secondary)]/30 text-xs font-semibold transition-colors"
+                className="px-3 py-1.5 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 text-[var(--text-primary)] border border-violet-500/30 text-xs font-semibold transition-colors"
               >
                 Launch Onboarding Wizard
               </button>
@@ -333,7 +333,7 @@ export default function SettingsPage() {
               key={m.id}
               className={`p-3 rounded-xl border text-xs space-y-1 ${
                 selectedModel === m.id
-                  ? "bg-[var(--accent-secondary)]/15 border-[var(--accent-secondary)]/40 text-[var(--text-primary)]"
+                  ? "bg-violet-500/15 border-violet-500/40 text-[var(--text-primary)]"
                   : "bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-secondary)]"
               }`}
             >
@@ -352,7 +352,7 @@ export default function SettingsPage() {
           <button
             onClick={handleTestAiModel}
             disabled={testingModel}
-            className="px-4 py-2 rounded-xl bg-[var(--accent-secondary)]/20 hover:bg-[var(--accent-secondary)] text-[var(--text-primary)] border border-[var(--accent-secondary)]/30 text-xs font-semibold transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 text-[var(--text-primary)] border border-violet-500/30 text-xs font-semibold transition-all disabled:opacity-50"
           >
             {testingModel ? "Testing Gateway..." : "Test AI Model Gateway"}
           </button>

@@ -42,8 +42,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-primary)] text-[var(--text-primary)] relative overflow-hidden transition-colors duration-150">
       {/* Background glow effects */}
-      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-[var(--accent-primary)]/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-[var(--accent-secondary)]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 md:p-8 shadow-2xl relative z-10">
         {/* Brand */}
@@ -113,7 +113,7 @@ export default function LoginPage() {
         </form>
 
         {/* Demo Hint Banner */}
-        <div className="mt-6 p-3 rounded-xl bg-[var(--accent-primary)]/10 border border-[var(--accent-primary)]/20 text-[11px] text-[var(--text-secondary)] space-y-1">
+        <div className="mt-6 p-3 rounded-xl bg-[var(--badge-bg)] border border-[var(--border-focus)] text-[11px] text-[var(--text-secondary)] space-y-1">
           <div className="flex items-center gap-1.5 text-[var(--accent-primary)] font-medium">
             <Sparkles className="w-3.5 h-3.5" /> Default Demo Student Account
           </div>

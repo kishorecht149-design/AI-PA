@@ -205,9 +205,9 @@ export function HomeClient({ userName }: HomeClientProps) {
               <Link
                 key={ws.href}
                 href={ws.href}
-                className="group flex items-start gap-3.5 p-4 rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border)] hover:border-[var(--border-focus)]/50 transition-all duration-200"
+                className="group flex items-start gap-3.5 p-4 rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border)] hover:border-[var(--border-focus)] transition-all duration-200"
               >
-                <div className="p-2.5 rounded-xl bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/20">
+                <div className="p-2.5 rounded-xl bg-[var(--badge-bg)] text-[var(--accent-primary)] border border-[var(--border-focus)]">
                   <Icon className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">

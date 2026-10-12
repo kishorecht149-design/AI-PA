@@ -176,7 +176,7 @@ export function Navigation({
                     title={collapsed ? item.name : undefined}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                       isActive
-                        ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30 font-semibold shadow-sm"
+                        ? "bg-[var(--badge-bg)] text-[var(--accent-primary)] border border-[var(--border-focus)] font-semibold shadow-sm"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border)]"
                     } ${collapsed ? "justify-center px-0" : ""}`}
                   >
@@ -224,7 +224,7 @@ export function Navigation({
                     }}
                     className={`flex items-center gap-2 p-1.5 rounded-lg text-left text-[11px] border transition-all ${
                       isSelected
-                        ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 font-semibold"
+                        ? "border-[var(--accent-primary)] bg-[var(--badge-bg)] font-semibold"
                         : "border-[var(--border)] hover:bg-[var(--border)] text-[var(--text-secondary)]"
                     }`}
                   >
@@ -247,7 +247,7 @@ export function Navigation({
         <div className="p-3 border-t border-[var(--border)] flex items-center justify-between gap-1">
           {!collapsed ? (
             <div className="flex items-center gap-2.5 overflow-hidden flex-1">
-              <div className="w-8 h-8 rounded-full bg-[var(--accent-primary)]/20 border border-[var(--accent-primary)]/30 flex items-center justify-center text-xs text-[var(--accent-primary)] font-semibold flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-[var(--badge-bg)] border border-[var(--border-focus)] flex items-center justify-center text-xs text-[var(--accent-primary)] font-semibold flex-shrink-0">
                 {userName.charAt(0).toUpperCase()}
               </div>
               <div className="truncate">
@@ -258,7 +258,7 @@ export function Navigation({
               </div>
             </div>
           ) : (
-            <div className="mx-auto w-8 h-8 rounded-full bg-[var(--accent-primary)]/20 border border-[var(--accent-primary)]/30 flex items-center justify-center text-xs text-[var(--accent-primary)] font-semibold">
+            <div className="mx-auto w-8 h-8 rounded-full bg-[var(--badge-bg)] border border-[var(--border-focus)] flex items-center justify-center text-xs text-[var(--accent-primary)] font-semibold">
               {userName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -288,7 +288,7 @@ export function Navigation({
       </aside>
 
       {/* Mobile Top Bar */}
-      <header className="md:hidden sticky top-0 z-30 h-14 bg-[var(--bg-sidebar)]/95 backdrop-blur-md border-b border-[var(--border)] px-4 flex items-center justify-between">
+      <header className="md:hidden sticky top-0 z-30 h-14 bg-[var(--bg-sidebar)] backdrop-blur-md border-b border-[var(--border)] px-4 flex items-center justify-between">
         <Link href="/" className="flex items-center">
           <AmahasLogo variant="compact" size="sm" />
         </Link>
@@ -350,7 +350,7 @@ export function Navigation({
                   }}
                   className={`flex items-center gap-2 p-2 rounded-xl text-left text-xs border transition-all ${
                     isSelected
-                      ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 font-semibold text-[var(--text-primary)]"
+                      ? "border-[var(--accent-primary)] bg-[var(--badge-bg)] font-semibold text-[var(--text-primary)]"
                       : "border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)]"
                   }`}
                 >
@@ -368,7 +368,7 @@ export function Navigation({
 
       {/* Mobile Drawer (When More/Menu is open) */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 top-14 z-40 bg-[var(--bg-primary)]/95 backdrop-blur-xl p-4 overflow-y-auto">
+        <div className="md:hidden fixed inset-0 top-14 z-40 bg-[var(--bg-primary)] backdrop-blur-xl p-4 overflow-y-auto">
           <div className="space-y-6 pb-20">
             {NAV_GROUPS.map((grp) => (
               <div key={grp.group} className="space-y-2">
@@ -386,7 +386,7 @@ export function Navigation({
                         onClick={() => setMobileMenuOpen(false)}
                         className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium transition-colors ${
                           isActive
-                            ? "bg-[var(--accent-primary)]/15 border-[var(--accent-primary)]/40 text-[var(--accent-primary)]"
+                            ? "bg-[var(--badge-bg)] border-[var(--border-focus)] text-[var(--accent-primary)]"
                             : "bg-[var(--bg-secondary)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         }`}
                       >
@@ -415,7 +415,7 @@ export function Navigation({
       )}
 
       {/* Mobile Bottom Navigation (Always accessible thumbs) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-[var(--bg-sidebar)]/95 backdrop-blur-lg border-t border-[var(--border)] px-3 flex items-center justify-around">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-[var(--bg-sidebar)] backdrop-blur-lg border-t border-[var(--border)] px-3 flex items-center justify-around">
         <Link
           href="/"
           className={`flex flex-col items-center gap-1 text-[10px] ${
