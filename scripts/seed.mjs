@@ -76,6 +76,8 @@ async function main() {
       confidence: 4,
       isGateSubject: true,
       weightage: 10,
+      isDemo: true,
+      track: "GATE_CS",
       units: {
         create: [
           {
@@ -149,6 +151,8 @@ async function main() {
       confidence: 3,
       isGateSubject: true,
       weightage: 12,
+      isDemo: true,
+      track: "GATE_CS",
       units: {
         create: [
           {

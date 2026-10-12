@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
 import { aiGateway } from "@/lib/ai-gateway";
-import { APPLICATION_TOOLS } from "@/lib/tools-registry";
+import { APPLICATION_TOOLS, validateToolArgs } from "@/lib/tools-registry";
 
 export async function GET() {
   try {
@@ -38,14 +38,57 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { message, modelId, conversationId, executeConfirmedTool } = body;
 
-    // Direct confirmation execution of a mutating tool
+    // Direct confirmation execution of a mutating tool with strict validation and idempotency
     if (executeConfirmedTool) {
-      const { toolName, args } = executeConfirmedTool;
+      const { toolName, args, idempotencyKey } = executeConfirmedTool;
       const toolDef = APPLICATION_TOOLS[toolName];
       if (!toolDef) {
-        return NextResponse.json({ error: "Unknown tool" }, { status: 400 });
+        return NextResponse.json({ error: `Unknown tool '${toolName}'` }, { status: 400 });
       }
+
+      // 1. Strict server-side parameter validation
+      const validation = validateToolArgs(toolDef, args);
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: "Tool argument validation failed", details: validation.errors },
+          { status: 400 }
+        );
+      }
+
+      // 2. Prevent duplicate execution when a request is retried
+      if (idempotencyKey) {
+        const existingAudit = await prisma.auditEvent.findFirst({
+          where: {
+            userId,
+            action: `TOOL_MUTATION:${idempotencyKey}`,
+          },
+        });
+        if (existingAudit?.detailsJson) {
+          try {
+            const cachedResult = JSON.parse(existingAudit.detailsJson);
+            return NextResponse.json({
+              success: true,
+              toolResult: cachedResult,
+              isIdempotentReplay: true,
+            });
+          } catch {}
+        }
+      }
+
+      // 3. Execute tool
       const toolResult = await toolDef.execute(userId, args);
+
+      // 4. Record audit event for verification & idempotency
+      if (idempotencyKey) {
+        await prisma.auditEvent.create({
+          data: {
+            userId,
+            action: `TOOL_MUTATION:${idempotencyKey}`,
+            detailsJson: JSON.stringify(toolResult),
+          },
+        });
+      }
+
       return NextResponse.json({ success: true, toolResult });
     }
 

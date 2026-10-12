@@ -40,10 +40,22 @@ export async function GET() {
       prisma.aIMemory.findMany({ where: { userId } }),
     ]);
 
+    const safeUser = dbUser
+      ? {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name,
+          role: dbUser.role,
+          createdAt: dbUser.createdAt,
+          profile: dbUser.profile,
+          preferences: dbUser.preferences,
+        }
+      : null;
+
     const exportData = {
       exportVersion: "1.0",
       exportTimestamp: new Date().toISOString(),
-      user: dbUser,
+      user: safeUser,
       tasks,
       projects,
       courses,

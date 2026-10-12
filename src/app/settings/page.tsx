@@ -14,6 +14,7 @@ import {
   Cpu,
 } from "lucide-react";
 import { KNOWN_FREE_MODELS } from "@/lib/ai-gateway";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 export default function SettingsPage() {
   const [profileName, setProfileName] = useState("Kishore Kumar");
@@ -21,15 +22,20 @@ export default function SettingsPage() {
   const [workingEnd, setWorkingEnd] = useState("22:30");
   const [focusMin, setFocusMin] = useState(45);
   const [timeZone, setTimeZone] = useState("Asia/Kolkata");
+  const [examinationTrack, setExaminationTrack] = useState("GATE_EC");
+  const [targetExams, setTargetExams] = useState("GATE EC 2027");
+  const [fixedCommitments, setFixedCommitments] = useState("");
+  const [learningPriorities, setLearningPriorities] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // AI model test state
   const [selectedModel, setSelectedModel] = useState("openrouter/free");
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testingModel, setTestingModel] = useState(false);
 
-  useEffect(() => {
+  const loadSettings = () => {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((d) => {
@@ -40,7 +46,17 @@ export default function SettingsPage() {
           setFocusMin(d.preferences.preferredFocusMinutes || 45);
           setTimeZone(d.preferences.timeZone || "Asia/Kolkata");
         }
+        if (d.profile) {
+          if (d.profile.examinationTrack) setExaminationTrack(d.profile.examinationTrack);
+          if (d.profile.targetExams) setTargetExams(d.profile.targetExams);
+          if (d.profile.fixedCommitments) setFixedCommitments(d.profile.fixedCommitments);
+          if (d.profile.learningPriorities) setLearningPriorities(d.profile.learningPriorities);
+        }
       });
+  };
+
+  useEffect(() => {
+    loadSettings();
   }, []);
 
   const handleSavePreferences = async (e: React.FormEvent) => {
@@ -58,6 +74,10 @@ export default function SettingsPage() {
           workingHoursEnd: workingEnd,
           preferredFocusMinutes: focusMin,
           timeZone,
+          examinationTrack,
+          targetExams,
+          fixedCommitments,
+          learningPriorities,
         }),
       });
 
@@ -69,6 +89,23 @@ export default function SettingsPage() {
       console.error(e);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleClearDemo = async () => {
+    if (!confirm("Are you sure you want to remove all demo sample courses, tasks, and goals?")) return;
+    try {
+      const res = await fetch("/api/tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "CLEAR_DEMO" }),
+      });
+      if (res.ok) {
+        alert("Demo records cleared successfully.");
+        loadSettings();
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -169,25 +206,100 @@ export default function SettingsPage() {
                 className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-mono"
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Configured Examination Track
+              </label>
+              <select
+                value={examinationTrack}
+                onChange={(e) => setExaminationTrack(e.target.value)}
+                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+              >
+                <option value="GATE_EC">GATE EC — Electronics &amp; Communication</option>
+                <option value="ESE_ET">ESE E&amp;T — Electronics &amp; Telecommunication (UPSC)</option>
+                <option value="ECE_CORE">ECE Core Coursework — Degree Curriculum</option>
+                <option value="GATE_CS">GATE CS — Computer Science &amp; IT</option>
+                <option value="CUSTOM">Custom Engineering Track</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Target Examination Goals
+              </label>
+              <input
+                type="text"
+                value={targetExams}
+                onChange={(e) => setTargetExams(e.target.value)}
+                placeholder="e.g. GATE EC 2027 AIR < 100"
+                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
-            {saveSuccess ? (
-              <span className="text-xs text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" /> Preferences saved successfully.
-              </span>
-            ) : (
-              <span />
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-white/5">
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Fixed Commitments (Classes, Labs, Commute)
+              </label>
+              <textarea
+                rows={3}
+                value={fixedCommitments}
+                onChange={(e) => setFixedCommitments(e.target.value)}
+                placeholder="e.g. Mon-Fri 09:00 - 16:00 College Lectures..."
+                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 leading-relaxed"
+              />
+            </div>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs transition-colors shadow-md shadow-cyan-500/20 disabled:opacity-50"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>{saving ? "Saving..." : "Save Preferences"}</span>
-            </button>
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Learning Priorities
+              </label>
+              <textarea
+                rows={3}
+                value={learningPriorities}
+                onChange={(e) => setLearningPriorities(e.target.value)}
+                placeholder="e.g. 1. Networks & Transient Analysis..."
+                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 leading-relaxed"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/5">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowOnboarding(true)}
+                className="px-3 py-1.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 text-xs font-semibold transition-colors"
+              >
+                Launch Onboarding Wizard
+              </button>
+              <button
+                type="button"
+                onClick={handleClearDemo}
+                className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-colors"
+              >
+                Clear Demo Data
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {saveSuccess && (
+                <span className="text-xs text-emerald-400 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" /> Preferences saved.
+                </span>
+              )}
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs transition-colors shadow-md shadow-cyan-500/20 disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{saving ? "Saving..." : "Save Preferences"}</span>
+              </button>
+            </div>
           </div>
         </div>
       </form>
@@ -258,6 +370,12 @@ export default function SettingsPage() {
           </a>
         </div>
       </div>
+
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onCompleted={loadSettings}
+      />
     </div>
   );
 }

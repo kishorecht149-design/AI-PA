@@ -1,14 +1,14 @@
 import { cookies } from "next/headers";
-import { prisma } from "./prisma";
+import { prisma } from "./prisma.ts";
 import {
   hashPassword,
   verifyPassword,
   createSessionToken,
   verifySessionToken,
   SessionUser,
-} from "./auth-crypto";
+} from "./auth-crypto.ts";
 
-export * from "./auth-crypto";
+export * from "./auth-crypto.ts";
 
 const AUTH_COOKIE_NAME = "amahas_session";
 

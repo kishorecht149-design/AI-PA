@@ -32,7 +32,22 @@ export async function PATCH(req: Request) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, workingHoursStart, workingHoursEnd, preferredFocusMinutes, timeZone } = body;
+    const {
+      name,
+      workingHoursStart,
+      workingHoursEnd,
+      preferredFocusMinutes,
+      timeZone,
+      program,
+      institution,
+      academicYear,
+      primaryFocus,
+      bio,
+      targetExams,
+      examinationTrack,
+      fixedCommitments,
+      learningPriorities,
+    } = body;
 
     if (name) {
       await prisma.user.update({
@@ -41,24 +56,56 @@ export async function PATCH(req: Request) {
       });
     }
 
-    const updatedPref = await prisma.userPreference.upsert({
-      where: { userId },
-      update: {
-        ...(workingHoursStart && { workingHoursStart }),
-        ...(workingHoursEnd && { workingHoursEnd }),
-        ...(preferredFocusMinutes && { preferredFocusMinutes: Number(preferredFocusMinutes) }),
-        ...(timeZone && { timeZone }),
-      },
-      create: {
-        userId,
-        workingHoursStart: workingHoursStart || "08:30",
-        workingHoursEnd: workingHoursEnd || "22:30",
-        preferredFocusMinutes: preferredFocusMinutes ? Number(preferredFocusMinutes) : 45,
-        timeZone: timeZone || "Asia/Kolkata",
-      },
-    });
+    const [updatedPref, updatedProfile] = await Promise.all([
+      prisma.userPreference.upsert({
+        where: { userId },
+        update: {
+          ...(workingHoursStart && { workingHoursStart }),
+          ...(workingHoursEnd && { workingHoursEnd }),
+          ...(preferredFocusMinutes && { preferredFocusMinutes: Number(preferredFocusMinutes) }),
+          ...(timeZone && { timeZone }),
+        },
+        create: {
+          userId,
+          workingHoursStart: workingHoursStart || "08:30",
+          workingHoursEnd: workingHoursEnd || "22:30",
+          preferredFocusMinutes: preferredFocusMinutes ? Number(preferredFocusMinutes) : 45,
+          timeZone: timeZone || "Asia/Kolkata",
+        },
+      }),
+      prisma.profile.upsert({
+        where: { userId },
+        update: {
+          ...(program !== undefined && { program }),
+          ...(institution !== undefined && { institution }),
+          ...(academicYear !== undefined && { academicYear }),
+          ...(primaryFocus !== undefined && { primaryFocus }),
+          ...(bio !== undefined && { bio }),
+          ...(targetExams !== undefined && { targetExams }),
+          ...(examinationTrack !== undefined && { examinationTrack }),
+          ...(fixedCommitments !== undefined && { fixedCommitments }),
+          ...(learningPriorities !== undefined && { learningPriorities }),
+        },
+        create: {
+          userId,
+          program: program || null,
+          institution: institution || null,
+          academicYear: academicYear || null,
+          primaryFocus: primaryFocus || null,
+          bio: bio || null,
+          targetExams: targetExams || null,
+          examinationTrack: examinationTrack || null,
+          fixedCommitments: fixedCommitments || null,
+          learningPriorities: learningPriorities || null,
+        },
+      }),
+    ]);
 
-    return NextResponse.json({ success: true, preferences: updatedPref });
+    return NextResponse.json({
+      success: true,
+      preferences: updatedPref,
+      profile: updatedProfile,
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

@@ -14,7 +14,9 @@ import {
   Flame,
   Award,
   AlertCircle,
+  Plus,
 } from "lucide-react";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 interface TopicItem {
   id: string;
@@ -42,6 +44,8 @@ interface CourseItem {
   confidence: number;
   isGateSubject: boolean;
   weightage: number | null;
+  isDemo?: boolean;
+  track?: string | null;
   units: UnitItem[];
 }
 
@@ -51,6 +55,9 @@ export default function AcademicsPage() {
   const [masteredTopics, setMasteredTopics] = useState(0);
   const [overallReadinessPct, setOverallReadinessPct] = useState(0);
   const [dueRevisionTopics, setDueRevisionTopics] = useState<any[]>([]);
+  const [currentTrack, setCurrentTrack] = useState<string>("GATE_EC");
+  const [hasDemoCourses, setHasDemoCourses] = useState<boolean>(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Active topic revision modal state
@@ -62,14 +69,24 @@ export default function AcademicsPage() {
 
   const fetchAcademics = async () => {
     try {
-      const res = await fetch("/api/academics");
-      const data = await res.json();
+      const [acadRes, trackRes] = await Promise.all([
+        fetch("/api/academics"),
+        fetch("/api/tracks"),
+      ]);
+
+      const data = await acadRes.json();
       if (data.courses) {
         setCourses(data.courses);
         setTotalTopics(data.totalTopics || 0);
         setMasteredTopics(data.masteredTopics || 0);
         setOverallReadinessPct(data.overallReadinessPct || 0);
         setDueRevisionTopics(data.dueRevisionTopics || []);
+        setHasDemoCourses(data.courses.some((c: CourseItem) => c.isDemo));
+      }
+
+      const trackData = await trackRes.json();
+      if (trackData.currentTrack) {
+        setCurrentTrack(trackData.currentTrack);
       }
     } catch (e) {
       console.error(e);
@@ -81,6 +98,20 @@ export default function AcademicsPage() {
   useEffect(() => {
     fetchAcademics();
   }, []);
+
+  const handleClearDemo = async () => {
+    if (!confirm("Are you sure you want to remove demo sample courses and start fresh?")) return;
+    try {
+      await fetch("/api/tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "CLEAR_DEMO" }),
+      });
+      fetchAcademics();
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const handleRecordRevision = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,26 +169,51 @@ export default function AcademicsPage() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2.5">
             <GraduationCap className="w-6 h-6 text-emerald-400" />
-            Academics &amp; GATE/ESE Preparation
+            Academics &amp; Syllabus Tracker
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Hierarchical syllabus tracker with SuperMemo SM-2 spaced repetition and diagnostic confidence.
+            Configured Examination Track: <span className="font-semibold text-cyan-400 font-mono">{currentTrack.replace("_", " ")}</span> • SuperMemo SM-2 spaced repetition tracking.
           </p>
         </div>
 
-        {/* Global Readiness Score */}
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
-          <Award className="w-5 h-5 text-emerald-400" />
-          <div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-              GATE Readiness Score
-            </div>
-            <div className="text-sm font-bold text-emerald-300">
-              {overallReadinessPct}% Mastered ({masteredTopics}/{totalTopics} Topics)
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowOnboarding(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs transition-all shadow-md shadow-cyan-500/20"
+          >
+            <GraduationCap className="w-4 h-4" /> Switch / Configure Track
+          </button>
+
+          {/* Global Readiness Score */}
+          <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
+            <Award className="w-5 h-5 text-emerald-400" />
+            <div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                Syllabus Readiness
+              </div>
+              <div className="text-xs font-bold text-emerald-300">
+                {overallReadinessPct}% Mastered ({masteredTopics}/{totalTopics})
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Demo courses notice banner if demo records exist */}
+      {hasDemoCourses && (
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Sample demo courses are currently loaded alongside your workspace.</span>
+          </div>
+          <button
+            onClick={handleClearDemo}
+            className="self-start sm:self-center px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-semibold text-[11px] transition-colors"
+          >
+            Clear Demo Records
+          </button>
+        </div>
+      )}
 
       {/* Due For Spaced Revision Alerts */}
       {dueRevisionTopics.length > 0 && (
@@ -218,7 +274,12 @@ export default function AcademicsPage() {
                     </span>
                     {course.isGateSubject && (
                       <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 font-semibold text-[10px] border border-cyan-500/20">
-                        GATE CS Subject ({course.weightage} Marks Weightage)
+                        {course.track ? course.track.replace("_", " ") : "Core Technical Subject"}
+                      </span>
+                    )}
+                    {course.isDemo && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 font-semibold text-[10px] border border-amber-500/20">
+                        Demo Sample
                       </span>
                     )}
                   </div>
@@ -391,6 +452,13 @@ export default function AcademicsPage() {
           </div>
         </div>
       )}
+
+      {/* Track & Syllabus Onboarding Modal */}
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onCompleted={fetchAcademics}
+      />
     </div>
   );
 }

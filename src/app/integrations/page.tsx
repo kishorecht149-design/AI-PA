@@ -21,6 +21,8 @@ interface ConnectorItem {
   description: string;
   status: "NOT_CONFIGURED" | "CONNECTED" | "ERROR" | "DISCONNECTED";
   requiresApiKey: boolean;
+  authType?: "OPEN_PUBLIC" | "API_KEY" | "LOCAL_DAEMON";
+  pricingNote?: string;
   defaultEndpoint?: string;
   setupInstructions: string;
   lastSyncAt?: string;
@@ -131,9 +133,26 @@ export default function IntegrationsPage() {
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white/5 text-cyan-400 font-bold">
-                    {c.category}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white/5 text-cyan-400 font-bold">
+                      {c.category}
+                    </span>
+                    <span
+                      className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${
+                        c.authType === "OPEN_PUBLIC"
+                          ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                          : c.authType === "LOCAL_DAEMON"
+                          ? "text-violet-400 bg-violet-500/10 border-violet-500/20"
+                          : "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                      }`}
+                    >
+                      {c.authType === "OPEN_PUBLIC"
+                        ? "Public API"
+                        : c.authType === "LOCAL_DAEMON"
+                        ? "Local Daemon"
+                        : "API Key Required"}
+                    </span>
+                  </div>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusBadge(c.status)}`}>
                     {c.status.replace("_", " ")}
                   </span>
@@ -144,12 +163,17 @@ export default function IntegrationsPage() {
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     {c.description}
                   </p>
+                  {c.pricingNote && (
+                    <p className="text-[10px] text-slate-500 italic mt-2">
+                      💡 {c.pricingNote}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="pt-3 border-t border-white/5 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500">
-                  {c.requiresApiKey ? "Requires API Key" : "Public API / Local"}
+                <span className="text-[11px] text-slate-500 font-mono text-[10px]">
+                  {c.authType === "OPEN_PUBLIC" ? "No Credentials Needed" : c.requiresApiKey ? "Auth Token Needed" : "Local Port 11434"}
                 </span>
 
                 <button

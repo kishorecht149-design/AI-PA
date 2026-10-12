@@ -24,6 +24,8 @@ interface AutomationItem {
     status: string;
     executedAt: string;
     stepsResultJson: string | null;
+    errorMessage: string | null;
+    triggerPayload: string | null;
   }[];
 }
 
@@ -155,21 +157,62 @@ export default function AutomationsPage() {
                   <div className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">
                     Recent Execution Audit Logs
                   </div>
-                  <div className="space-y-1.5">
-                    {a.executions.map((ex) => (
-                      <div
-                        key={ex.id}
-                        className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs"
-                      >
-                        <span className="flex items-center gap-2 text-slate-300">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>Status: {ex.status}</span>
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {new Date(ex.executedAt).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="space-y-2">
+                    {a.executions.map((ex) => {
+                      let parsedSteps: any = null;
+                      try {
+                        if (ex.stepsResultJson) parsedSteps = JSON.parse(ex.stepsResultJson);
+                      } catch {}
+
+                      let isManualTest = false;
+                      try {
+                        if (ex.triggerPayload && ex.triggerPayload.includes("manualTriggerBy")) isManualTest = true;
+                      } catch {}
+
+                      return (
+                        <div
+                          key={ex.id}
+                          className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2 text-xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                              {ex.status === "SUCCESS" ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                              )}
+                              <span className={ex.status === "SUCCESS" ? "text-slate-200 font-semibold" : "text-red-300 font-semibold"}>
+                                {ex.status}
+                              </span>
+                              {isManualTest && (
+                                <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-mono">
+                                  Manual Test Run
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {new Date(ex.executedAt).toLocaleString()}
+                            </span>
+                          </div>
+
+                          {ex.errorMessage && (
+                            <div className="text-[11px] text-red-400 bg-red-500/10 p-2 rounded-lg border border-red-500/20">
+                              Error: {ex.errorMessage}
+                            </div>
+                          )}
+
+                          {parsedSteps && (
+                            <div className="text-[11px] text-slate-400 bg-black/30 p-2 rounded-lg border border-white/5 font-mono">
+                              <span className="text-slate-500 block mb-0.5">Steps outcome:</span>
+                              {Array.isArray(parsedSteps.steps) && parsedSteps.steps.join(" → ")}
+                              {parsedSteps.result && (
+                                <div className="text-slate-300 mt-1">{parsedSteps.result}</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

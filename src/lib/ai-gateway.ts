@@ -1,5 +1,5 @@
-import { APPLICATION_TOOLS, ToolDefinition } from "./tools-registry";
-import { prisma } from "./prisma";
+import { APPLICATION_TOOLS, type ToolDefinition } from "./tools-registry.ts";
+import { prisma } from "./prisma.ts";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";

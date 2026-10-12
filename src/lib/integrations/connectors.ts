@@ -1,5 +1,5 @@
-import { prisma } from "../prisma";
-import { aiGateway } from "../ai-gateway";
+import { prisma } from "../prisma.ts";
+import { aiGateway } from "../ai-gateway.ts";
 
 export interface ConnectorMeta {
   provider: string;
@@ -8,6 +8,8 @@ export interface ConnectorMeta {
   description: string;
   isExternal: boolean;
   requiresApiKey: boolean;
+  authType: "OPEN_PUBLIC" | "API_KEY" | "LOCAL_DAEMON";
+  pricingNote: string;
   defaultEndpoint?: string;
   setupInstructions: string;
 }
@@ -17,9 +19,11 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     provider: "OPENROUTER",
     name: "OpenRouter AI Gateway",
     category: "ai",
-    description: "Primary gateway for hosted AI models, prioritizing free routers (openrouter/free, Llama 3.3 70B, Gemini 2.0 Flash).",
+    description: "Multi-provider AI model gateway. Access hosted LLMs including openrouter/free, Llama 3.3, and DeepSeek.",
     isExternal: true,
     requiresApiKey: true,
+    authType: "API_KEY",
+    pricingNote: "Pricing and rate limits depend on your OpenRouter tier; free routers route when capacity permits.",
     defaultEndpoint: "https://openrouter.ai/api/v1",
     setupInstructions: "Obtain an API key from https://openrouter.ai/keys and add it to OPENROUTER_API_KEY in your environment or below.",
   },
@@ -30,6 +34,8 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     description: "Run open-source models (Llama 3.2, Qwen 2.5) locally on your hardware with 100% offline privacy.",
     isExternal: false,
     requiresApiKey: false,
+    authType: "LOCAL_DAEMON",
+    pricingNote: "100% Free; runs locally on your device hardware with zero token fees.",
     defaultEndpoint: "http://localhost:11434",
     setupInstructions: "Run 'ollama serve' in your local terminal. AMAHAS will detect available downloaded models.",
   },
@@ -40,6 +46,8 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     description: "Access over 250 million scholarly publications, citation graphs, and author metadata.",
     isExternal: true,
     requiresApiKey: false,
+    authType: "OPEN_PUBLIC",
+    pricingNote: "Free public access API; no billing or credit card required.",
     defaultEndpoint: "https://api.openalex.org",
     setupInstructions: "No API key required. Uses polite user-agent pool with your configured student email.",
   },
@@ -50,6 +58,8 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     description: "Live search over preprints across Computer Science, Electrical Engineering, Mathematics, and Physics.",
     isExternal: true,
     requiresApiKey: false,
+    authType: "OPEN_PUBLIC",
+    pricingNote: "Free public access via Cornell University arXiv XML API.",
     defaultEndpoint: "http://export.arxiv.org/api/query",
     setupInstructions: "No API key required. Direct open queries enabled.",
   },
@@ -60,6 +70,8 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     description: "Verified encyclopedic concept lookup and background learning for general knowledge modules.",
     isExternal: true,
     requiresApiKey: false,
+    authType: "OPEN_PUBLIC",
+    pricingNote: "Free open public access via Wikimedia Foundation REST API.",
     defaultEndpoint: "https://en.wikipedia.org/w/api.php",
     setupInstructions: "Free public access using MediaWiki API.",
   },
@@ -67,9 +79,11 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     provider: "VIKUNJA",
     name: "Vikunja Task Engine",
     category: "tasks",
-    description: "Optional bidirectional sync with self-hosted or cloud Vikunja task instances.",
+    description: "Bidirectional sync with self-hosted or cloud Vikunja task management instances.",
     isExternal: true,
     requiresApiKey: true,
+    authType: "API_KEY",
+    pricingNote: "Self-hosted is free open-source; cloud requires your Vikunja user account.",
     defaultEndpoint: "https://app.vikunja.io/api/v1",
     setupInstructions: "Generate a personal API token in your Vikunja User Settings > API Tokens.",
   },
@@ -77,9 +91,11 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     provider: "N8N",
     name: "n8n Workflow Automation",
     category: "automation",
-    description: "Optional connector to dispatch webhooks and trigger external automation sequences.",
+    description: "Dispatch webhooks and trigger external automation sequences across student life events.",
     isExternal: true,
     requiresApiKey: true,
+    authType: "API_KEY",
+    pricingNote: "Self-hosted n8n is free community edition; cloud requires your n8n account.",
     defaultEndpoint: "http://localhost:5678",
     setupInstructions: "Configure your n8n webhook URL or REST API key to bridge student life events.",
   },
@@ -90,6 +106,8 @@ export const CONNECTOR_CATALOG: ConnectorMeta[] = [
     description: "Link code repositories to technical projects and research experiments.",
     isExternal: true,
     requiresApiKey: true,
+    authType: "API_KEY",
+    pricingNote: "Free tier for personal public/private repositories subject to GitHub API rate limits.",
     defaultEndpoint: "https://api.github.com",
     setupInstructions: "Create a GitHub Personal Access Token (classic or fine-grained) with 'repo' scope.",
   },

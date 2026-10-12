@@ -44,6 +44,10 @@ export default function TasksPage() {
   const [newPriority, setNewPriority] = useState("MEDIUM");
   const [newEstimatedMin, setNewEstimatedMin] = useState("45");
   const [newDueDate, setNewDueDate] = useState("");
+  const [newProjectId, setNewProjectId] = useState("");
+  const [newCourseId, setNewCourseId] = useState("");
+  const [projectsList, setProjectsList] = useState<{ id: string; name: string }[]>([]);
+  const [coursesList, setCoursesList] = useState<{ id: string; code: string; name: string }[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Focus Timer modal state
@@ -66,6 +70,18 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetchTasks();
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.projects) setProjectsList(d.projects);
+      })
+      .catch(() => {});
+    fetch("/api/academics")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.courses) setCoursesList(d.courses);
+      })
+      .catch(() => {});
   }, []);
 
   // Timer interval
@@ -99,10 +115,14 @@ export default function TasksPage() {
           priority: newPriority,
           estimatedMinutes: parseInt(newEstimatedMin, 10) || 45,
           dueDate: newDueDate || null,
+          projectId: newProjectId || null,
+          courseId: newCourseId || null,
         }),
       });
       if (res.ok) {
         setNewTitle("");
+        setNewProjectId("");
+        setNewCourseId("");
         setShowCreateForm(false);
         fetchTasks();
       }
@@ -143,15 +163,21 @@ export default function TasksPage() {
     if (!activeFocusTask) return;
     const recordedMins = Math.max(1, Math.round(elapsedFocusMinutes));
 
-    // Save actual time on task
-    await fetch("/api/tasks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: activeFocusTask.id,
-        actualMinutes: activeFocusTask.actualMinutes + recordedMins,
-      }),
-    });
+    // Record persistent focus session and update task actual time
+    try {
+      await fetch("/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: activeFocusTask.id,
+          targetMinutes: activeFocusTask.estimatedMinutes || 45,
+          actualMinutes: recordedMins,
+          courseId: activeFocusTask.course?.id || null,
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to record focus session:", e);
+    }
 
     setIsTimerRunning(false);
     setActiveFocusTask(null);
@@ -322,6 +348,39 @@ export default function TasksPage() {
                   onChange={(e) => setNewDueDate(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Project (Optional)
+                  </label>
+                  <select
+                    value={newProjectId}
+                    onChange={(e) => setNewProjectId(e.target.value)}
+                    className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value="">None</option>
+                    {projectsList.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Course (Optional)
+                  </label>
+                  <select
+                    value={newCourseId}
+                    onChange={(e) => setNewCourseId(e.target.value)}
+                    className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value="">None</option>
+                    {coursesList.map((c) => (
+                      <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">

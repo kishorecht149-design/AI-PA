@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Save,
 } from "lucide-react";
+import { MarkdownLatexRenderer } from "@/components/MarkdownLatexRenderer";
 
 interface NoteItem {
   id: string;
@@ -280,8 +281,8 @@ export default function NotesPage() {
               {/* Editor / Preview Content */}
               <div className="flex-1 overflow-y-auto">
                 {isPreview ? (
-                  <div className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
-                    {editContent}
+                  <div className="prose prose-invert prose-sm max-w-none text-slate-200 font-sans leading-relaxed p-2">
+                    <MarkdownLatexRenderer content={editContent} />
                   </div>
                 ) : (
                   <textarea

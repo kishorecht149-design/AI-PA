@@ -1,5 +1,5 @@
-import { prisma } from "./prisma";
-import { calculateSM2 } from "./spaced-repetition";
+import { prisma } from "./prisma.ts";
+import { calculateSM2 } from "./spaced-repetition.ts";
 
 export type TriggerType =
   | "ON_TASK_COMPLETED"
@@ -127,3 +127,17 @@ export async function dispatchAutomationEvent(payload: EventPayload): Promise<{
 
   return { executedCount: userAutomations.length, results };
 }
+
+export async function triggerAutomations(
+  triggerTypeOrPayload: TriggerType | EventPayload,
+  data?: Omit<EventPayload, "triggerType"> & { courseId?: string }
+) {
+  if (typeof triggerTypeOrPayload === "string") {
+    return dispatchAutomationEvent({
+      triggerType: triggerTypeOrPayload,
+      ...(data || { userId: "" }),
+    } as EventPayload);
+  }
+  return dispatchAutomationEvent(triggerTypeOrPayload);
+}
+

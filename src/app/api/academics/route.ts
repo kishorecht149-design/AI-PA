@@ -70,6 +70,28 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
+
+    // Create a new custom course
+    if (body.action === "CREATE_COURSE" || (!body.topicId && body.name)) {
+      const { code, name, instructor, semester, isGateSubject, track } = body;
+      if (!name?.trim()) {
+        return NextResponse.json({ error: "Course name is required" }, { status: 400 });
+      }
+      const course = await prisma.course.create({
+        data: {
+          userId,
+          code: (code || name.substring(0, 5)).toUpperCase().trim(),
+          name: name.trim(),
+          instructor: instructor || null,
+          semester: semester || null,
+          isGateSubject: !!isGateSubject,
+          isDemo: false,
+          track: track || null,
+        },
+      });
+      return NextResponse.json({ success: true, course }, { status: 201 });
+    }
+
     const { topicId, rating, notes } = body;
 
     const topic = await prisma.syllabusTopic.findUnique({

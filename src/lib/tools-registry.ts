@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.ts";
+import { calculateSM2 } from "./spaced-repetition.ts";
 
 export interface ToolDefinition {
   name: string;
@@ -10,6 +11,43 @@ export interface ToolDefinition {
     required: string[];
   };
   execute: (userId: string, args: any) => Promise<any>;
+}
+
+/**
+ * Server-side tool argument validator enforcing schema types, required keys, and enum constraints.
+ */
+export function validateToolArgs(
+  toolDef: ToolDefinition,
+  args: any
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (!args || typeof args !== "object") {
+    return { valid: false, errors: ["Tool arguments must be a non-null object."] };
+  }
+
+  // Check required fields
+  for (const reqField of toolDef.parameters.required) {
+    if (args[reqField] === undefined || args[reqField] === null || (typeof args[reqField] === "string" && !args[reqField].trim())) {
+      errors.push(`Missing required parameter: '${reqField}'`);
+    }
+  }
+
+  // Check constraints
+  for (const [propName, propDef] of Object.entries(toolDef.parameters.properties)) {
+    const val = args[propName];
+    if (val !== undefined && val !== null) {
+      if (propDef.enum && !propDef.enum.includes(val)) {
+        errors.push(
+          `Invalid value '${val}' for '${propName}'. Allowed values: ${propDef.enum.join(", ")}`
+        );
+      }
+      if (propDef.type === "number" && isNaN(Number(val))) {
+        errors.push(`Parameter '${propName}' must be a valid numeric value.`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
 }
 
 export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
@@ -298,6 +336,136 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
         include: { researchProject: { select: { title: true } } },
       });
       return { count: papers.length, papers };
+    },
+  },
+
+  schedule_focus_block: {
+    name: "schedule_focus_block",
+    description: "Schedule a dedicated study or focus timeblock in the student planner.",
+    isReadOnly: false,
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Title or focus goal of the block" },
+        startTime: { type: "string", description: "ISO start datetime string" },
+        endTime: { type: "string", description: "ISO end datetime string" },
+        taskId: { type: "string", description: "Optional associated task ID" },
+      },
+      required: ["title", "startTime", "endTime"],
+    },
+    execute: async (userId, args) => {
+      const timeBlock = await prisma.timeBlock.create({
+        data: {
+          userId,
+          title: args.title,
+          startTime: new Date(args.startTime),
+          endTime: new Date(args.endTime),
+          taskId: args.taskId || null,
+        },
+      });
+      return { success: true, message: `Focus block scheduled: "${timeBlock.title}"`, timeBlock };
+    },
+  },
+
+  log_habit_completion: {
+    name: "log_habit_completion",
+    description: "Log completion status for a daily habit or routine.",
+    isReadOnly: false,
+    parameters: {
+      type: "object",
+      properties: {
+        habitId: { type: "string", description: "ID of the habit to mark" },
+        date: { type: "string", description: "ISO date string or YYYY-MM-DD" },
+        completed: { type: "string", description: "Completion status ('true' or 'false')" },
+      },
+      required: ["habitId"],
+    },
+    execute: async (userId, args) => {
+      const habit = await prisma.habit.findFirst({
+        where: { id: args.habitId, userId },
+      });
+      if (!habit) throw new Error("Habit not found or unauthorized");
+
+      const dateStr = args.date ? args.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
+      const isCompleted = args.completed === "false" ? false : true;
+
+      const log = await prisma.habitLog.upsert({
+        where: {
+          habitId_dateString: {
+            habitId: habit.id,
+            dateString: dateStr,
+          },
+        },
+        create: {
+          habitId: habit.id,
+          dateString: dateStr,
+          completed: isCompleted,
+        },
+        update: {
+          completed: isCompleted,
+        },
+      });
+
+      return { success: true, message: `Habit "${habit.name}" logged.`, log };
+    },
+  },
+
+  record_syllabus_revision: {
+    name: "record_syllabus_revision",
+    description: "Record a spaced-repetition revision session for an academic syllabus topic using SM-2.",
+    isReadOnly: false,
+    parameters: {
+      type: "object",
+      properties: {
+        topicId: { type: "string", description: "ID of the syllabus topic" },
+        quality: { type: "string", description: "Recall rating from 1 (blackout) to 5 (perfect recall)" },
+      },
+      required: ["topicId", "quality"],
+    },
+    execute: async (userId, args) => {
+      const topic = await prisma.syllabusTopic.findFirst({
+        where: { id: args.topicId, unit: { course: { userId } } },
+        include: { revisionRecords: { orderBy: { studiedAt: "desc" }, take: 1 } },
+      });
+      if (!topic) throw new Error("Syllabus topic not found or unauthorized");
+
+      const qualityNum = parseInt(args.quality, 10) || 3;
+      const lastRec = topic.revisionRecords[0];
+      const prevEase = lastRec ? lastRec.easeFactor : 2.5;
+      const prevInterval = lastRec ? lastRec.intervalDays : 1;
+
+      const sm2 = calculateSM2({
+        rating: qualityNum,
+        repetitions: topic.revisionCount,
+        intervalDays: prevInterval,
+        easeFactor: prevEase,
+      });
+
+      await prisma.revisionRecord.create({
+        data: {
+          topicId: topic.id,
+          rating: qualityNum,
+          intervalDays: sm2.intervalDays,
+          easeFactor: sm2.easeFactor,
+        },
+      });
+
+      const updated = await prisma.syllabusTopic.update({
+        where: { id: topic.id },
+        data: {
+          lastStudiedAt: new Date(),
+          nextRevisionAt: sm2.nextReviewDate,
+          revisionCount: topic.revisionCount + 1,
+          confidenceLevel: Math.min(5, Math.max(1, qualityNum)),
+          status: sm2.repetitions >= 3 ? "MASTERED" : sm2.repetitions > 0 ? "REVISED" : "IN_PROGRESS",
+        },
+      });
+
+      return {
+        success: true,
+        message: `Topic "${updated.title}" revision recorded. Next review in ${sm2.intervalDays} day(s).`,
+        topic: updated,
+      };
     },
   },
 

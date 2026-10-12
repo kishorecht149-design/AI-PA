@@ -28,40 +28,167 @@ export async function GET() {
   }
 }
 
-// Save paper to research project
+// Save paper to research project OR create a new research project
 export async function POST(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { researchProjectId, title, authors, year, doi, arxivId, abstract, pdfUrl, source } = body;
+
+    // 1. Create a new Research Project
+    if (body.action === "CREATE_PROJECT" || body.projectTitle) {
+      const { projectTitle, abstract, hypotheses, targetVenue, description } = body;
+      if (!projectTitle?.trim()) {
+        return NextResponse.json({ error: "Project title is required" }, { status: 400 });
+      }
+
+      const project = await prisma.researchProject.create({
+        data: {
+          userId,
+          title: projectTitle.trim(),
+          description: description?.trim() || null,
+          abstract: abstract?.trim() || null,
+          hypotheses: hypotheses?.trim() || null,
+          targetVenue: targetVenue?.trim() || null,
+          status: "ACTIVE",
+        },
+        include: { papers: true, experiments: true, datasets: true },
+      });
+
+      return NextResponse.json({ success: true, project }, { status: 201 });
+    }
+
+    // 2. Add paper to a research project
+    const { researchProjectId, title, authors, year, doi, arxivId, abstract, pdfUrl, source, readingStatus } = body;
+
+    if (!title?.trim()) {
+      return NextResponse.json({ error: "Paper title is required" }, { status: 400 });
+    }
 
     let targetProjectId = researchProjectId;
     if (!targetProjectId) {
       const firstProject = await prisma.researchProject.findFirst({ where: { userId } });
-      targetProjectId = firstProject?.id;
-    }
-
-    if (!targetProjectId) {
-      return NextResponse.json({ error: "No research project found" }, { status: 400 });
+      if (firstProject) {
+        targetProjectId = firstProject.id;
+      } else {
+        const defaultProj = await prisma.researchProject.create({
+          data: {
+            userId,
+            title: "Literature Review & Core Research",
+            status: "ACTIVE",
+          },
+        });
+        targetProjectId = defaultProj.id;
+      }
     }
 
     const paper = await prisma.researchPaper.create({
       data: {
         researchProjectId: targetProjectId,
-        title,
-        authors: Array.isArray(authors) ? authors.join(", ") : authors,
+        title: title.trim(),
+        authors: Array.isArray(authors) ? authors.join(", ") : authors || null,
         year: year ? Number(year) : null,
         doi: doi || null,
         arxivId: arxivId || null,
         abstract: abstract || null,
         pdfUrl: pdfUrl || null,
         retrievedSource: source || "External",
+        readingStatus: readingStatus || "TO_READ",
       },
     });
 
-    return NextResponse.json({ paper }, { status: 201 });
+    return NextResponse.json({ success: true, paper }, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// Update paper reading status, key takeaways, or project status
+export async function PATCH(req: Request) {
+  try {
+    const userId = await resolveApiUserId();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await req.json();
+    const { paperId, readingStatus, userKeyTakeaways, projectId, status, abstract, targetVenue } = body;
+
+    // Update paper
+    if (paperId) {
+      const paper = await prisma.researchPaper.findUnique({
+        where: { id: paperId },
+        include: { researchProject: true },
+      });
+
+      if (!paper || paper.researchProject.userId !== userId) {
+        return NextResponse.json({ error: "Paper not found or unauthorized" }, { status: 404 });
+      }
+
+      const updated = await prisma.researchPaper.update({
+        where: { id: paperId },
+        data: {
+          ...(readingStatus && { readingStatus }),
+          ...(userKeyTakeaways !== undefined && { userKeyTakeaways: userKeyTakeaways?.trim() || null }),
+        },
+      });
+
+      return NextResponse.json({ success: true, paper: updated });
+    }
+
+    // Update project
+    if (projectId) {
+      const project = await prisma.researchProject.findFirst({
+        where: { id: projectId, userId },
+      });
+      if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
+      const updated = await prisma.researchProject.update({
+        where: { id: projectId },
+        data: {
+          ...(status && { status }),
+          ...(abstract !== undefined && { abstract: abstract?.trim() || null }),
+          ...(targetVenue !== undefined && { targetVenue: targetVenue?.trim() || null }),
+        },
+      });
+
+      return NextResponse.json({ success: true, project: updated });
+    }
+
+    return NextResponse.json({ error: "Provide paperId or projectId" }, { status: 400 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const userId = await resolveApiUserId();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const paperId = searchParams.get("paperId");
+    const projectId = searchParams.get("projectId");
+
+    if (paperId) {
+      const paper = await prisma.researchPaper.findUnique({
+        where: { id: paperId },
+        include: { researchProject: true },
+      });
+      if (!paper || paper.researchProject.userId !== userId) {
+        return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 });
+      }
+      await prisma.researchPaper.delete({ where: { id: paperId } });
+      return NextResponse.json({ success: true });
+    }
+
+    if (projectId) {
+      await prisma.researchProject.deleteMany({
+        where: { id: projectId, userId },
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: "Provide paperId or projectId" }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
