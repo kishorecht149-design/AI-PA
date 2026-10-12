@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { resolveApiUserId } from "@/lib/auth";
 import { CONNECTOR_CATALOG, testConnector } from "@/lib/integrations/connectors";
 
 export async function GET() {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const accounts = await prisma.integrationAccount.findMany({
@@ -34,8 +33,7 @@ export async function GET() {
 // POST endpoint to test connection or configure
 export async function POST(req: Request) {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();

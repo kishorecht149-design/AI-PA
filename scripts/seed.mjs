@@ -12,6 +12,11 @@ function hashPassword(password) {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PROD_SEED !== "true") {
+    console.warn("⚠️ Production environment detected: Refusing to seed default demo student credentials in production.");
+    return;
+  }
+
   console.log("🌱 Seeding AMAHAS with realistic student data...");
 
   const existing = await prisma.user.findUnique({

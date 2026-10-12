@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { resolveApiUserId } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const [dbUser, preferences, profile] = await Promise.all([
@@ -29,8 +28,7 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();

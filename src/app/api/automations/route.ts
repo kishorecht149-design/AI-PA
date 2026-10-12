@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { resolveApiUserId } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const automations = await prisma.automation.findMany({
@@ -27,8 +26,7 @@ export async function GET() {
 // POST endpoint to manually trigger a workflow test run
 export async function POST(req: Request) {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
@@ -52,7 +50,7 @@ export async function POST(req: Request) {
       data: {
         automationId: auto.id,
         status: "SUCCESS",
-        triggerPayload: JSON.stringify({ manualTriggerBy: user?.name || "Student" }),
+        triggerPayload: JSON.stringify({ manualTriggerBy: "Student", userId }),
         stepsResultJson: JSON.stringify({
           steps: ["Record Duration", "Calculate SM-2 Interval", "Update Review"],
           result: "All steps finished with exit code 0",

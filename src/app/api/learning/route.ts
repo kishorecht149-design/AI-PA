@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { resolveApiUserId } from "@/lib/auth";
 import { calculateSM2 } from "@/lib/spaced-repetition";
 import { searchWikipedia } from "@/lib/integrations/wikipedia";
 
 export async function GET(req: Request) {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
@@ -50,8 +49,7 @@ export async function GET(req: Request) {
 // POST endpoint for vocabulary flashcard SM-2 review
 export async function POST(req: Request) {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();

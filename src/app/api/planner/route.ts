@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { resolveApiUserId } from "@/lib/auth";
 
 export async function GET(req: Request) {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const now = new Date();
@@ -68,8 +67,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getSessionUser();
-    const userId = user?.id || (await prisma.user.findFirst())?.id;
+    const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();

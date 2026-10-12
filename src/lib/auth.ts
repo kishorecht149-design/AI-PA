@@ -35,6 +35,21 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 }
 
 /**
+ * Resolves the authenticated user ID for API routes.
+ * In production: strictly enforces session authentication (returns null if unauthenticated).
+ * In development: permits fallback to the local student record.
+ */
+export async function resolveApiUserId(): Promise<string | null> {
+  const user = await getSessionUser();
+  if (user) return user.id;
+  if (process.env.NODE_ENV !== "production") {
+    const devUser = await prisma.user.findFirst({ select: { id: true } });
+    return devUser?.id || null;
+  }
+  return null;
+}
+
+/**
  * Cookie options helper.
  */
 export const sessionCookieOptions = {
