@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Lock, Mail, User, AlertCircle } from "lucide-react";
+import { AmahasLogo } from "@/components/brand/AmahasLogo";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -40,16 +41,14 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#070b14] relative overflow-hidden">
-      <div className="w-full max-w-md bg-[#0b1120] border border-white/10 rounded-2xl p-6 md:p-8 shadow-2xl relative z-10">
-        <div className="text-center space-y-2 mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-white font-bold text-2xl mx-auto shadow-lg shadow-cyan-500/20">
-            A
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-primary)] text-[var(--text-primary)] relative overflow-hidden transition-colors duration-150">
+      <div className="w-full max-w-md bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 md:p-8 shadow-2xl relative z-10">
+        <div className="flex flex-col items-center text-center space-y-3 mb-8">
+          <AmahasLogo variant="primary" size="lg" showSubtitle={false} />
+          <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
             Create AMAHAS Account
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[var(--text-secondary)]">
             Personal Operating System for Students & Lifelong Learners
           </p>
         </div>
@@ -63,53 +62,53 @@ export default function SignupPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
               Full Name
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+              <User className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3.5" />
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
-                placeholder="Student Name"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl pl-9 pr-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--border-focus)] transition-colors"
+                placeholder="Arya Sharma"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Student Email
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+              Email Address
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+              <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3.5" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
-                placeholder="you@institution.edu"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl pl-9 pr-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--border-focus)] transition-colors"
+                placeholder="arya@university.edu"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Password (min. 8 characters)
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+              Password
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+              <Lock className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3.5" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
-                placeholder="••••••••"
+                minLength={6}
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl pl-9 pr-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--border-focus)] transition-colors"
+                placeholder="Minimum 6 characters"
               />
             </div>
           </div>
@@ -117,16 +116,16 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-xs shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] disabled:opacity-50"
+            className="w-full py-3 px-4 rounded-xl bg-[var(--btn-bg)] text-[var(--btn-text)] hover:opacity-90 font-semibold text-xs shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.01] disabled:opacity-50"
           >
-            {loading ? "Creating Account..." : "Create Student Account"}
+            {loading ? "Creating Account..." : "Join AMAHAS"}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-slate-500">
+        <div className="mt-6 text-center text-xs text-[var(--text-muted)]">
           Already have an account?{" "}
-          <Link href="/login" className="text-cyan-400 hover:underline">
+          <Link href="/login" className="text-[var(--accent-primary)] hover:underline">
             Sign in
           </Link>
         </div>

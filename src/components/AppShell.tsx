@@ -29,11 +29,15 @@ export function AppShell({
   }, []);
 
   if (isAuthPage) {
-    return <main className="min-h-screen bg-[#070b14]">{children}</main>;
+    return (
+      <main className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-150">
+        {children}
+      </main>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col md:flex-row transition-colors duration-150">
       <Navigation
         userName={userName}
         onOpenCommandBar={() => setCommandBarOpen(true)}
@@ -52,3 +56,4 @@ export function AppShell({
     </div>
   );
 }
+export default AppShell;

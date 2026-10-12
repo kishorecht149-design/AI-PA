@@ -25,7 +25,12 @@ import {
   Sparkles,
   LogOut,
   ChevronRight,
+  Palette,
+  Check,
 } from "lucide-react";
+import { AmahasLogo } from "@/components/brand/AmahasLogo";
+import { useTheme } from "@/lib/themes/theme-provider";
+import { ThemeId } from "@/lib/themes/types";
 
 interface NavItem {
   name: string;
@@ -84,6 +89,9 @@ export function Navigation({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [quickThemeOpen, setQuickThemeOpen] = useState(false);
+
+  const { theme, themeId, setTheme, allThemes } = useTheme();
 
   // If on login/signup pages, don't render navigation shell
   if (pathname === "/login" || pathname === "/signup") {
@@ -94,31 +102,23 @@ export function Navigation({
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden md:flex flex-col border-r border-white/10 bg-[#070b14]/90 backdrop-blur-md transition-all duration-200 z-30 fixed top-0 bottom-0 left-0 ${
+        className={`hidden md:flex flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)] backdrop-blur-md transition-all duration-200 z-30 fixed top-0 bottom-0 left-0 ${
           collapsed ? "w-20" : "w-64"
         }`}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-cyan-500/20">
-              A
-            </div>
-            {!collapsed && (
-              <div>
-                <span className="font-bold tracking-wider text-sm bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
-                  AMAHAS
-                </span>
-                <span className="block text-[10px] text-cyan-400 tracking-widest uppercase">
-                  Student OS
-                </span>
-              </div>
-            )}
+        <div className="h-16 flex items-center justify-between px-3 border-b border-[var(--border)]">
+          <Link href="/" className="flex items-center overflow-hidden">
+            <AmahasLogo
+              variant={collapsed ? "symbol" : "sidebar"}
+              size={collapsed ? "md" : "sm"}
+              className="py-1"
+            />
           </Link>
           <button
             onClick={() => setCollapsed(!collapsed)}
             aria-label="Toggle sidebar collapse"
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--border)] transition-colors flex-shrink-0"
           >
             <ChevronRight
               className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-180"}`}
@@ -126,26 +126,26 @@ export function Navigation({
           </button>
         </div>
 
-        {/* Global Search Shortcut */}
+        {/* Global Search & Quick Theme Shortcut */}
         {!collapsed ? (
-          <div className="p-3">
+          <div className="p-3 space-y-2">
             <button
               onClick={onOpenCommandBar}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-slate-400 border border-white/5 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--input-bg)] hover:bg-[var(--border)] text-xs text-[var(--text-secondary)] border border-[var(--border)] transition-colors"
             >
               <span className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-cyan-400" /> Search & Command
+                <Search className="w-3.5 h-3.5 text-[var(--accent-primary)]" /> Search & Command
               </span>
-              <kbd className="px-1.5 py-0.5 rounded bg-black/40 text-[10px] text-slate-400 border border-white/10">
+              <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-primary)] text-[10px] text-[var(--text-muted)] border border-[var(--border)]">
                 ⌘K
               </kbd>
             </button>
           </div>
         ) : (
-          <div className="p-2 flex justify-center">
+          <div className="p-2 flex flex-col items-center gap-2">
             <button
               onClick={onOpenCommandBar}
-              className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-cyan-400"
+              className="p-2.5 rounded-lg bg-[var(--input-bg)] hover:bg-[var(--border)] text-[var(--accent-primary)] transition-colors"
               title="Command Bar (⌘K)"
             >
               <Search className="w-4 h-4" />
@@ -158,7 +158,7 @@ export function Navigation({
           {NAV_GROUPS.map((grp) => (
             <div key={grp.group} className="space-y-1">
               {!collapsed && (
-                <div className="px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <div className="px-3 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                   {grp.group}
                 </div>
               )}
@@ -176,12 +176,14 @@ export function Navigation({
                     title={collapsed ? item.name : undefined}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                       isActive
-                        ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold shadow-sm shadow-cyan-500/10"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30 font-semibold shadow-sm"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border)]"
                     } ${collapsed ? "justify-center px-0" : ""}`}
                   >
                     <Icon
-                      className={`w-4 h-4 ${isActive ? "text-cyan-400" : "text-slate-400"}`}
+                      className={`w-4 h-4 ${
+                        isActive ? "text-[var(--accent-primary)]" : "text-[var(--text-muted)]"
+                      }`}
                     />
                     {!collapsed && <span>{item.name}</span>}
                   </Link>
@@ -191,65 +193,130 @@ export function Navigation({
           ))}
         </div>
 
-        {/* User Profile & Logout */}
-        <div className="p-3 border-t border-white/10 flex items-center justify-between">
+        {/* Quick Theme Switcher Popover Overlay */}
+        {quickThemeOpen && (
+          <div
+            className={`absolute bottom-16 ${
+              collapsed ? "left-20" : "left-3 right-3"
+            } z-50 p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border)] shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-150`}
+            style={{ width: collapsed ? "260px" : "auto" }}
+          >
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[var(--border)]">
+              <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-[var(--accent-primary)]" /> Quick Theme
+              </span>
+              <Link
+                href="/settings#appearance"
+                onClick={() => setQuickThemeOpen(false)}
+                className="text-[10px] text-[var(--accent-primary)] hover:underline"
+              >
+                All 24 in Settings →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
+              {allThemes.slice(0, 10).map((t) => {
+                const isSelected = t.id === themeId;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setTheme(t.id);
+                    }}
+                    className={`flex items-center gap-2 p-1.5 rounded-lg text-left text-[11px] border transition-all ${
+                      isSelected
+                        ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 font-semibold"
+                        : "border-[var(--border)] hover:bg-[var(--border)] text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0 border border-black/20"
+                      style={{ backgroundColor: t.tokens.accentPrimary }}
+                    />
+                    <span className="truncate">{t.name}</span>
+                    {isSelected && (
+                      <Check className="w-3 h-3 ml-auto text-[var(--accent-primary)]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* User Profile, Theme Palette & Logout Footer */}
+        <div className="p-3 border-t border-[var(--border)] flex items-center justify-between gap-1">
           {!collapsed ? (
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-cyan-900/60 border border-cyan-500/30 flex items-center justify-center text-xs text-cyan-300 font-semibold">
+            <div className="flex items-center gap-2.5 overflow-hidden flex-1">
+              <div className="w-8 h-8 rounded-full bg-[var(--accent-primary)]/20 border border-[var(--accent-primary)]/30 flex items-center justify-center text-xs text-[var(--accent-primary)] font-semibold flex-shrink-0">
                 {userName.charAt(0).toUpperCase()}
               </div>
               <div className="truncate">
-                <div className="text-xs font-medium text-slate-200 truncate">
+                <div className="text-xs font-medium text-[var(--text-primary)] truncate">
                   {userName}
                 </div>
-                <div className="text-[10px] text-slate-500">Student Account</div>
+                <div className="text-[10px] text-[var(--text-muted)] truncate">{theme.name}</div>
               </div>
             </div>
           ) : (
-            <div className="mx-auto w-8 h-8 rounded-full bg-cyan-900/60 border border-cyan-500/30 flex items-center justify-center text-xs text-cyan-300 font-semibold">
+            <div className="mx-auto w-8 h-8 rounded-full bg-[var(--accent-primary)]/20 border border-[var(--accent-primary)]/30 flex items-center justify-center text-xs text-[var(--accent-primary)] font-semibold">
               {userName.charAt(0).toUpperCase()}
             </div>
           )}
-          {!collapsed && (
-            <form action="/api/auth/logout" method="POST">
-              <button
-                type="submit"
-                title="Sign out"
-                className="text-slate-400 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </form>
-          )}
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setQuickThemeOpen(!quickThemeOpen)}
+              title="Quick Theme Selector"
+              className="text-[var(--text-muted)] hover:text-[var(--accent-primary)] p-1.5 rounded-lg hover:bg-[var(--border)] transition-colors"
+            >
+              <Palette className="w-4 h-4" />
+            </button>
+
+            {!collapsed && (
+              <form action="/api/auth/logout" method="POST">
+                <button
+                  type="submit"
+                  title="Sign out"
+                  className="text-[var(--text-muted)] hover:text-red-400 p-1.5 rounded-lg hover:bg-[var(--border)] transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </aside>
 
       {/* Mobile Top Bar */}
-      <header className="md:hidden sticky top-0 z-30 h-14 bg-[#070b14]/90 backdrop-blur-md border-b border-white/10 px-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm">
-            A
-          </div>
-          <span className="font-bold text-xs tracking-wider text-white">AMAHAS</span>
+      <header className="md:hidden sticky top-0 z-30 h-14 bg-[var(--bg-sidebar)]/95 backdrop-blur-md border-b border-[var(--border)] px-4 flex items-center justify-between">
+        <Link href="/" className="flex items-center">
+          <AmahasLogo variant="compact" size="sm" />
         </Link>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setQuickThemeOpen(!quickThemeOpen)}
+            className="p-2 text-[var(--text-muted)] hover:text-[var(--accent-primary)] rounded-lg hover:bg-[var(--border)]"
+            title="Theme"
+          >
+            <Palette className="w-4 h-4" />
+          </button>
+          <button
             onClick={onOpenCommandBar}
-            className="p-2 text-slate-400 hover:text-cyan-400 rounded-lg hover:bg-white/5"
-            aria-label="Search"
+            className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--border)]"
+            aria-label="Open command bar"
           >
             <Search className="w-4 h-4" />
           </button>
           <Link
             href="/assistant"
-            className="p-2 text-violet-400 hover:text-violet-300 rounded-lg hover:bg-white/5"
+            className="p-2 text-[var(--accent-secondary)] hover:opacity-80 rounded-lg hover:bg-[var(--border)]"
             aria-label="Assistant"
           >
             <Sparkles className="w-4 h-4" />
           </Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5"
+            className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--border)]"
             aria-label="Open menu drawer"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -257,13 +324,55 @@ export function Navigation({
         </div>
       </header>
 
+      {/* Mobile Quick Theme Dropdown Drawer */}
+      {quickThemeOpen && (
+        <div className="md:hidden fixed inset-x-3 top-16 z-50 p-4 rounded-2xl bg-[var(--bg-elevated)] border border-[var(--border)] shadow-2xl backdrop-blur-2xl">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-[var(--border)]">
+            <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
+              <Palette className="w-4 h-4 text-[var(--accent-primary)]" /> Appearance Themes
+            </span>
+            <button
+              onClick={() => setQuickThemeOpen(false)}
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+            {allThemes.map((t) => {
+              const isSelected = t.id === themeId;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setTheme(t.id);
+                    setQuickThemeOpen(false);
+                  }}
+                  className={`flex items-center gap-2 p-2 rounded-xl text-left text-xs border transition-all ${
+                    isSelected
+                      ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 font-semibold text-[var(--text-primary)]"
+                      : "border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)]"
+                  }`}
+                >
+                  <span
+                    className="w-3.5 h-3.5 rounded-full flex-shrink-0 border border-black/20"
+                    style={{ backgroundColor: t.tokens.accentPrimary }}
+                  />
+                  <span className="truncate">{t.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Mobile Drawer (When More/Menu is open) */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 top-14 z-40 bg-[#070b14]/95 backdrop-blur-xl p-4 overflow-y-auto">
+        <div className="md:hidden fixed inset-0 top-14 z-40 bg-[var(--bg-primary)]/95 backdrop-blur-xl p-4 overflow-y-auto">
           <div className="space-y-6 pb-20">
             {NAV_GROUPS.map((grp) => (
               <div key={grp.group} className="space-y-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                   {grp.group}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -277,8 +386,8 @@ export function Navigation({
                         onClick={() => setMobileMenuOpen(false)}
                         className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium transition-colors ${
                           isActive
-                            ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
-                            : "bg-white/5 border-white/5 text-slate-300 hover:bg-white/10"
+                            ? "bg-[var(--accent-primary)]/15 border-[var(--accent-primary)]/40 text-[var(--accent-primary)]"
+                            : "bg-[var(--bg-secondary)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         }`}
                       >
                         <Icon className="w-4 h-4" />
@@ -290,8 +399,8 @@ export function Navigation({
               </div>
             ))}
 
-            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-slate-400">Signed in as {userName}</span>
+            <div className="pt-4 border-t border-[var(--border)] flex items-center justify-between">
+              <span className="text-xs text-[var(--text-muted)]">Signed in as {userName}</span>
               <form action="/api/auth/logout" method="POST">
                 <button
                   type="submit"
@@ -306,11 +415,11 @@ export function Navigation({
       )}
 
       {/* Mobile Bottom Navigation (Always accessible thumbs) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-[#070b14]/95 backdrop-blur-lg border-t border-white/10 px-3 flex items-center justify-around">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-[var(--bg-sidebar)]/95 backdrop-blur-lg border-t border-[var(--border)] px-3 flex items-center justify-around">
         <Link
           href="/"
           className={`flex flex-col items-center gap-1 text-[10px] ${
-            pathname === "/" ? "text-cyan-400 font-semibold" : "text-slate-400"
+            pathname === "/" ? "text-[var(--accent-primary)] font-semibold" : "text-[var(--text-muted)]"
           }`}
         >
           <Home className="w-4 h-4" />
@@ -319,7 +428,9 @@ export function Navigation({
         <Link
           href="/planner"
           className={`flex flex-col items-center gap-1 text-[10px] ${
-            pathname.startsWith("/planner") ? "text-cyan-400 font-semibold" : "text-slate-400"
+            pathname.startsWith("/planner")
+              ? "text-[var(--accent-primary)] font-semibold"
+              : "text-[var(--text-muted)]"
           }`}
         >
           <Calendar className="w-4 h-4" />
@@ -328,7 +439,9 @@ export function Navigation({
         <Link
           href="/tasks"
           className={`flex flex-col items-center gap-1 text-[10px] ${
-            pathname.startsWith("/tasks") ? "text-cyan-400 font-semibold" : "text-slate-400"
+            pathname.startsWith("/tasks")
+              ? "text-[var(--accent-primary)] font-semibold"
+              : "text-[var(--text-muted)]"
           }`}
         >
           <CheckSquare className="w-4 h-4" />
@@ -337,7 +450,9 @@ export function Navigation({
         <Link
           href="/academics"
           className={`flex flex-col items-center gap-1 text-[10px] ${
-            pathname.startsWith("/academics") ? "text-cyan-400 font-semibold" : "text-slate-400"
+            pathname.startsWith("/academics")
+              ? "text-[var(--accent-primary)] font-semibold"
+              : "text-[var(--text-muted)]"
           }`}
         >
           <GraduationCap className="w-4 h-4" />
@@ -346,7 +461,7 @@ export function Navigation({
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className={`flex flex-col items-center gap-1 text-[10px] ${
-            mobileMenuOpen ? "text-cyan-400 font-semibold" : "text-slate-400"
+            mobileMenuOpen ? "text-[var(--accent-primary)] font-semibold" : "text-[var(--text-muted)]"
           }`}
         >
           <Menu className="w-4 h-4" />
@@ -356,3 +471,4 @@ export function Navigation({
     </>
   );
 }
+export default Navigation;

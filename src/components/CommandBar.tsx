@@ -14,6 +14,7 @@ import {
   Settings,
   X,
   Plus,
+  Palette,
 } from "lucide-react";
 
 interface CommandBarProps {
@@ -30,9 +31,6 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         if (isOpen) onClose();
-        else {
-          // Trigger open through custom event if needed
-        }
       }
       if (e.key === "Escape" && isOpen) {
         onClose();
@@ -56,6 +54,7 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
     { name: "Research Lab & Papers", path: "/research", icon: Microscope, category: "Navigation" },
     { name: "Learning Studio (8 Languages & GK)", path: "/learning", icon: BookOpen, category: "Navigation" },
     { name: "Knowledge Base & Notes", path: "/notes", icon: FileText, category: "Navigation" },
+    { name: "Theme Engine & 24 Appearance Styles", path: "/settings#appearance", icon: Palette, category: "Settings" },
     { name: "Ask Assistant with Authorized Tools", path: "/assistant", icon: Bot, category: "Intelligence" },
     { name: "Settings & AI Models Gateway", path: "/settings", icon: Settings, category: "Settings" },
   ];
@@ -66,21 +65,21 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-xl bg-[#0b1120] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-xl bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden">
         {/* Search Input Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-          <Search className="w-5 h-5 text-cyan-400" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)]">
+          <Search className="w-5 h-5 text-[var(--accent-primary)]" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Type a command, feature, or navigate..."
-            className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 outline-none"
+            className="flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
             autoFocus
           />
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-slate-300 p-1 rounded-md"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md"
             aria-label="Close command bar"
           >
             <X className="w-4 h-4" />
@@ -95,7 +94,7 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
                 router.push(`/tasks?quickCreate=${encodeURIComponent(query)}`);
                 onClose();
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 hover:bg-cyan-500/20"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/20 hover:bg-[var(--accent-primary)]/20"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Task: &quot;{query}&quot;</span>
@@ -112,27 +111,27 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
                 <button
                   key={item.path}
                   onClick={() => navigateTo(item.path)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 text-left text-xs text-slate-200 transition-colors group"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[var(--border)] text-left text-xs text-[var(--text-primary)] transition-colors group"
                 >
                   <span className="flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-white/5 group-hover:bg-cyan-500/10 group-hover:text-cyan-400 text-slate-400">
+                    <div className="p-1.5 rounded-lg bg-[var(--input-bg)] group-hover:bg-[var(--accent-primary)]/15 group-hover:text-[var(--accent-primary)] text-[var(--text-muted)]">
                       <Icon className="w-4 h-4" />
                     </div>
                     <span className="font-medium">{item.name}</span>
                   </span>
-                  <span className="text-[10px] text-slate-500">{item.category}</span>
+                  <span className="text-[10px] text-[var(--text-muted)]">{item.category}</span>
                 </button>
               );
             })
           ) : (
-            <div className="py-8 text-center text-xs text-slate-500">
+            <div className="py-8 text-center text-xs text-[var(--text-muted)]">
               No matching destinations found for &quot;{query}&quot;
             </div>
           )}
         </div>
 
         {/* Footer shortcuts */}
-        <div className="px-4 py-2 bg-black/30 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-500">
+        <div className="px-4 py-2 bg-[var(--bg-primary)] border-t border-[var(--border)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
           <span>Navigate with mouse or Tab</span>
           <span>Esc to exit</span>
         </div>
@@ -140,3 +139,4 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
     </div>
   );
 }
+export default CommandBar;

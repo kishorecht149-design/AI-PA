@@ -108,32 +108,32 @@ export function OnboardingModal({ isOpen, onClose, onCompleted }: OnboardingModa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-2xl bg-[#0b1120] border border-cyan-500/30 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="w-full max-w-2xl bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* Modal Header */}
-        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-[#070b14]/50">
+        <div className="p-5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-primary)]/80">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm">
-              <Sparkles className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-[var(--accent-primary)] text-[var(--accent-text)] flex items-center justify-center font-bold text-sm shadow-sm">
+              <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm md:text-base font-bold text-white">
+              <h2 className="text-sm md:text-base font-bold text-[var(--text-primary)]">
                 AMAHAS Personalization &amp; Track Onboarding
               </h2>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-[var(--text-muted)]">
                 Step {step} of 4 — {step === 1 ? "Time & Routine" : step === 2 ? "Discipline & Exam Track" : step === 3 ? "Commitments & Goals" : "Provisioning & Demo Policy"}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--border)] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs text-slate-200">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs text-[var(--text-primary)]">
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 shrink-0" />

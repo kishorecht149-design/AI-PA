@@ -38,6 +38,7 @@ export async function PATCH(req: Request) {
       workingHoursEnd,
       preferredFocusMinutes,
       timeZone,
+      theme,
       program,
       institution,
       academicYear,
@@ -64,6 +65,7 @@ export async function PATCH(req: Request) {
           ...(workingHoursEnd && { workingHoursEnd }),
           ...(preferredFocusMinutes && { preferredFocusMinutes: Number(preferredFocusMinutes) }),
           ...(timeZone && { timeZone }),
+          ...(theme && { theme }),
         },
         create: {
           userId,
@@ -71,6 +73,7 @@ export async function PATCH(req: Request) {
           workingHoursEnd: workingHoursEnd || "22:30",
           preferredFocusMinutes: preferredFocusMinutes ? Number(preferredFocusMinutes) : 45,
           timeZone: timeZone || "Asia/Kolkata",
+          theme: theme || "amahas-signature",
         },
       }),
       prisma.profile.upsert({

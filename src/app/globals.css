@@ -3,43 +3,162 @@
 @tailwind utilities;
 
 :root {
-  --background: #070b14;
-  --foreground: #f8fafc;
-  --surface: #0b1120;
-  --surface-elevated: #0f172a;
+  /* Default AMAHAS Signature Tokens */
+  --bg-primary: #070b14;
+  --bg-secondary: #0b1120;
+  --bg-elevated: #0f172a;
+  --bg-sidebar: #070b14;
+  --bg-card: #0b1120;
+
   --border: rgba(255, 255, 255, 0.08);
+  --border-focus: #00e5ff;
+  --border-subtle: rgba(255, 255, 255, 0.04);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --accent-primary: #00e5ff;
+  --accent-secondary: #8b5cf6;
+  --accent-tertiary: #3b82f6;
+  --accent-hover: #22d3ee;
+  --accent-text: #070b14;
+
+  --btn-bg: #00e5ff;
+  --btn-text: #070b14;
+  --btn-hover: #22d3ee;
+  --btn-sec-bg: rgba(255, 255, 255, 0.06);
+  --btn-sec-text: #f8fafc;
+
+  --input-bg: rgba(255, 255, 255, 0.04);
+  --input-border: rgba(255, 255, 255, 0.12);
+  --input-text: #f8fafc;
+  --input-placeholder: #64748b;
+
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-info: #00e5ff;
+
+  --badge-bg: rgba(0, 229, 255, 0.12);
+  --badge-text: #22d3ee;
+
+  --ring: rgba(0, 229, 255, 0.5);
+  --scrollbar-track: #070b14;
+  --scrollbar-thumb: #1e293b;
+
+  --theme-glow: 0 0 20px -5px rgba(0, 229, 255, 0.25);
   --radius: 0.75rem;
+
+  --chart-1: #00e5ff;
+  --chart-2: #8b5cf6;
+  --chart-3: #3b82f6;
+  --chart-4: #10b981;
+  --chart-5: #f59e0b;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* Custom dark scrollbars */
+/* Accessible focus ring */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Custom theme scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #070b14;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  filter: brightness(1.2);
 }
 
-/* Subtle glow utilities */
-.glow-cyan {
-  box-shadow: 0 0 20px -5px rgba(0, 229, 255, 0.25);
+/* Semantic utility helpers */
+.bg-theme-main {
+  background-color: var(--bg-primary);
+}
+.bg-theme-surface {
+  background-color: var(--bg-secondary);
+}
+.bg-theme-elevated {
+  background-color: var(--bg-elevated);
+}
+.bg-theme-sidebar {
+  background-color: var(--bg-sidebar);
+}
+.bg-theme-card {
+  background-color: var(--bg-card);
 }
 
-.glow-violet {
-  box-shadow: 0 0 20px -5px rgba(168, 85, 247, 0.25);
+.text-theme-primary {
+  color: var(--text-primary);
+}
+.text-theme-secondary {
+  color: var(--text-secondary);
+}
+.text-theme-muted {
+  color: var(--text-muted);
+}
+
+.border-theme {
+  border-color: var(--border);
+}
+.border-theme-subtle {
+  border-color: var(--border-subtle);
+}
+
+.accent-theme {
+  color: var(--accent-primary);
+}
+
+.btn-theme-primary {
+  background-color: var(--btn-bg);
+  color: var(--btn-text);
+  transition: all 0.15s ease;
+}
+.btn-theme-primary:hover {
+  background-color: var(--btn-hover);
+}
+
+.btn-theme-secondary {
+  background-color: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+}
+.btn-theme-secondary:hover {
+  filter: brightness(1.15);
+}
+
+.input-theme {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+}
+.input-theme::placeholder {
+  color: var(--input-placeholder);
+}
+
+.badge-theme {
+  background-color: var(--badge-bg);
+  color: var(--badge-text);
+}
+
+.glow-theme {
+  box-shadow: var(--theme-glow);
 }

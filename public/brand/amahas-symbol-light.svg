@@ -1,0 +1,25 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="arch-grad-light" x1="15" y1="80" x2="85" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="40%" stop-color="#2563eb" />
+      <stop offset="80%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+    <linearGradient id="ring-grad-light" x1="10" y1="50" x2="90" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#c026d3" />
+    </linearGradient>
+    <linearGradient id="inner-grad-light" x1="35" y1="40" x2="65" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0369a1" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+
+  <path d="M 52 32 C 72 26, 92 32, 88 44 C 84 55, 68 62, 52 64" stroke="url(#ring-grad-light)" stroke-width="3.2" stroke-linecap="round" opacity="0.9" />
+  <path d="M 27 75 L 43 28 C 45 22, 55 22, 57 28 L 73 75 C 75 79, 70 82, 66 79 L 55 46 C 53 40, 47 40, 45 46 L 34 79 C 30 82, 25 79, 27 75 Z" fill="url(#arch-grad-light)" />
+  <circle cx="50" cy="44" r="5.5" fill="url(#inner-grad-light)" stroke="#bae6fd" stroke-width="1.2" />
+  <path d="M 37 68 C 43 56, 57 56, 63 68 C 58 63, 42 63, 37 68 Z" fill="url(#inner-grad-light)" stroke="#38bdf8" stroke-width="0.8" />
+  <path d="M 12 56 C 14 44, 30 36, 48 34" stroke="#0284c7" stroke-width="3.6" stroke-linecap="round" />
+  <path d="M 12 56 C 14 62, 26 66, 42 66" stroke="url(#ring-grad-light)" stroke-width="3.2" stroke-linecap="round" />
+</svg>

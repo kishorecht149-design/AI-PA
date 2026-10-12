@@ -12,9 +12,11 @@ import {
   Sparkles,
   Save,
   Cpu,
+  Palette,
 } from "lucide-react";
 import { KNOWN_FREE_MODELS } from "@/lib/ai-gateway";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { ThemeBrowser } from "@/components/ThemeBrowser";
 
 export default function SettingsPage() {
   const [profileName, setProfileName] = useState("Kishore Kumar");
@@ -113,70 +115,81 @@ export default function SettingsPage() {
     setTestingModel(true);
     setTestResult(null);
     try {
-      const res = await fetch("/api/integrations", {
+      const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          provider: "OPENROUTER",
+          message: "Ping. State system ready in 1 word.",
+          model: selectedModel,
         }),
       });
       const data = await res.json();
-      setTestResult(data.message);
-    } catch (e: any) {
-      setTestResult(`Test error: ${e.message}`);
+      if (data.reply) {
+        setTestResult(`✓ Active: "${data.reply.slice(0, 50)}"`);
+      } else {
+        setTestResult("⚠️ AI Gateway replied without content.");
+      }
+    } catch {
+      setTestResult("❌ Gateway unreachable.");
     } finally {
       setTestingModel(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+    <div className="space-y-8 max-w-5xl mx-auto transition-colors duration-150">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2.5">
-            <Settings className="w-6 h-6 text-slate-400" />
+          <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2.5">
+            <Settings className="w-6 h-6 text-[var(--accent-primary)]" />
             System Settings &amp; Preferences
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Configure working hours, AI Model Gateway, privacy controls, and data portability.
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            Personalize your 24-theme workspace, routine timings, examination track, and data controls.
           </p>
         </div>
       </div>
 
+      {/* SECTION: Theme & Appearance (24 Visual Themes Engine) */}
+      <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] space-y-6">
+        <ThemeBrowser />
+      </div>
+
       <form onSubmit={handleSavePreferences} className="space-y-6">
-        {/* Section 1: Profile & Working Hours */}
-        <div className="p-6 rounded-2xl bg-[#0b1120] border border-white/5 space-y-4">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400">
+        {/* Section: Profile & Working Hours */}
+        <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] space-y-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--accent-primary)]">
             <User className="w-4 h-4" /> Student Profile &amp; Routine
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Display Name
               </label>
               <input
                 type="text"
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
-                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Configured Timezone
               </label>
               <input
                 type="text"
                 value={timeZone}
                 onChange={(e) => setTimeZone(e.target.value)}
-                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-mono"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)] font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Study Hours Window
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -184,37 +197,37 @@ export default function SettingsPage() {
                   type="time"
                   value={workingStart}
                   onChange={(e) => setWorkingStart(e.target.value)}
-                  className="bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
                 />
                 <input
                   type="time"
                   value={workingEnd}
                   onChange={(e) => setWorkingEnd(e.target.value)}
-                  className="bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Default Focus Duration (Minutes)
               </label>
               <input
                 type="number"
                 value={focusMin}
                 onChange={(e) => setFocusMin(Number(e.target.value))}
-                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-mono"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)] font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Configured Examination Track
               </label>
               <select
                 value={examinationTrack}
                 onChange={(e) => setExaminationTrack(e.target.value)}
-                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
               >
                 <option value="GATE_EC">GATE EC — Electronics &amp; Communication</option>
                 <option value="ESE_ET">ESE E&amp;T — Electronics &amp; Telecommunication (UPSC)</option>
@@ -225,7 +238,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Target Examination Goals
               </label>
               <input
@@ -233,14 +246,14 @@ export default function SettingsPage() {
                 value={targetExams}
                 onChange={(e) => setTargetExams(e.target.value)}
                 placeholder="e.g. GATE EC 2027 AIR < 100"
-                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-[var(--border)]">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Fixed Commitments (Classes, Labs, Commute)
               </label>
               <textarea
@@ -248,12 +261,12 @@ export default function SettingsPage() {
                 value={fixedCommitments}
                 onChange={(e) => setFixedCommitments(e.target.value)}
                 placeholder="e.g. Mon-Fri 09:00 - 16:00 College Lectures..."
-                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 leading-relaxed"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)] leading-relaxed"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 Learning Priorities
               </label>
               <textarea
@@ -261,17 +274,17 @@ export default function SettingsPage() {
                 value={learningPriorities}
                 onChange={(e) => setLearningPriorities(e.target.value)}
                 placeholder="e.g. 1. Networks & Transient Analysis..."
-                className="w-full bg-[#070b14] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 leading-relaxed"
+                className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)] leading-relaxed"
               />
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[var(--border)]">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowOnboarding(true)}
-                className="px-3 py-1.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 text-xs font-semibold transition-colors"
+                className="px-3 py-1.5 rounded-xl bg-[var(--accent-secondary)]/20 hover:bg-[var(--accent-secondary)]/30 text-[var(--text-primary)] border border-[var(--accent-secondary)]/30 text-xs font-semibold transition-colors"
               >
                 Launch Onboarding Wizard
               </button>
@@ -294,7 +307,7 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs transition-colors shadow-md shadow-cyan-500/20 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--btn-bg)] hover:opacity-90 text-[var(--btn-text)] font-semibold text-xs transition-colors shadow-md disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>{saving ? "Saving..." : "Save Preferences"}</span>
@@ -304,13 +317,13 @@ export default function SettingsPage() {
         </div>
       </form>
 
-      {/* Section 2: AI Model Gateway Config */}
-      <div className="p-6 rounded-2xl bg-[#0b1120] border border-white/5 space-y-4">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
+      {/* Section: AI Model Gateway Config */}
+      <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] space-y-4">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--accent-secondary)]">
           <Cpu className="w-4 h-4" /> AI Models Gateway (OpenRouter &amp; Ollama)
         </div>
 
-        <p className="text-xs text-slate-400 leading-relaxed">
+        <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
           AMAHAS prioritizes free hosted router endpoints (<strong>openrouter/free</strong>) and local inference (<strong>Ollama</strong>). Paid models are never engaged without explicit selection.
         </p>
 
@@ -320,8 +333,8 @@ export default function SettingsPage() {
               key={m.id}
               className={`p-3 rounded-xl border text-xs space-y-1 ${
                 selectedModel === m.id
-                  ? "bg-violet-600/10 border-violet-500/40 text-white"
-                  : "bg-white/[0.02] border-white/5 text-slate-400"
+                  ? "bg-[var(--accent-secondary)]/15 border-[var(--accent-secondary)]/40 text-[var(--text-primary)]"
+                  : "bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-secondary)]"
               }`}
             >
               <div className="font-bold flex items-center justify-between">
@@ -330,7 +343,7 @@ export default function SettingsPage() {
                   {m.isFree ? "Free Tier" : "Local"}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500">{m.description}</p>
+              <p className="text-[11px] text-[var(--text-muted)]">{m.description}</p>
             </div>
           ))}
         </div>
@@ -339,23 +352,23 @@ export default function SettingsPage() {
           <button
             onClick={handleTestAiModel}
             disabled={testingModel}
-            className="px-4 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600 text-violet-200 hover:text-white border border-violet-500/30 text-xs font-semibold transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-[var(--accent-secondary)]/20 hover:bg-[var(--accent-secondary)] text-[var(--text-primary)] border border-[var(--accent-secondary)]/30 text-xs font-semibold transition-all disabled:opacity-50"
           >
             {testingModel ? "Testing Gateway..." : "Test AI Model Gateway"}
           </button>
           {testResult && (
-            <span className="text-xs text-slate-300 font-mono">{testResult}</span>
+            <span className="text-xs text-[var(--text-secondary)] font-mono">{testResult}</span>
           )}
         </div>
       </div>
 
-      {/* Section 3: Privacy & Full Data Portability */}
-      <div className="p-6 rounded-2xl bg-[#0b1120] border border-white/5 space-y-4">
+      {/* Section: Privacy & Full Data Portability */}
+      <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] space-y-4">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
           <Shield className="w-4 h-4" /> Privacy &amp; Data Portability
         </div>
 
-        <p className="text-xs text-slate-400 leading-relaxed">
+        <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
           You own 100% of your academic records, research notes, and habit data. Export your complete data structure at any time into standard, portable JSON with zero vendor lock-in.
         </p>
 
@@ -363,7 +376,7 @@ export default function SettingsPage() {
           <a
             href="/api/export"
             download
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--input-bg)] hover:bg-[var(--border)] border border-[var(--border)] text-xs font-semibold text-[var(--text-primary)] transition-colors shadow-sm"
           >
             <Download className="w-4 h-4 text-emerald-400" />
             <span>Export Complete Student Data (.json)</span>
