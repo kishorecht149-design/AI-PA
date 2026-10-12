@@ -1,0 +1,841 @@
+// Prisma Schema for AMAHAS (Autonomous Multimodal Holographic Assistant System)
+// Designed for production durability with local SQLite and scalable PostgreSQL support
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// 1. Users, Profiles & Preferences
+// -----------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  avatarUrl     String?
+  role          String    @default("student")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile       Profile?
+  preferences   UserPreference?
+
+  tasks         Task[]
+  projects      Project[]
+  calendarEvents CalendarEvent[]
+  timeBlocks    TimeBlock[]
+  focusSessions FocusSession[]
+  courses       Course[]
+  researchProjects ResearchProject[]
+  notes         Note[]
+  noteCollections NoteCollection[]
+  learningModules LearningModule[]
+  vocabularyCards VocabularyCard[]
+  books         Book[]
+  habits        Habit[]
+  goals         Goal[]
+  reviews       ProductivityReview[]
+  conversations Conversation[]
+  aiMemories    AIMemory[]
+  integrations  IntegrationAccount[]
+  automations   Automation[]
+  notifications Notification[]
+  auditEvents   AuditEvent[]
+
+  @@index([email])
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution     String?  // College / University
+  program         String?  // e.g. B.Tech Computer Science / Electrical
+  academicYear    String?  // e.g. 3rd Year
+  primaryFocus    String?  // e.g. GATE 2027 + Research + Systems
+  bio             String?
+  targetExams     String?  // Comma separated e.g. "GATE CS, ESE"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model UserPreference {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timeZone            String   @default("UTC")
+  workingHoursStart   String   @default("09:00")
+  workingHoursEnd     String   @default("22:00")
+  preferredFocusMinutes Int    @default(45)
+  theme               String   @default("dark") // "dark" | "light" | "system"
+  soundEnabled        Boolean  @default(true)
+  notificationsEnabled Boolean @default(true)
+  aiModelPreference   String   @default("openrouter/free")
+  aiCreativity        Float    @default(0.7)
+  enableVoiceInput    Boolean  @default(true)
+  enableVoiceOutput   Boolean  @default(false)
+  autoScheduleBreaks  Boolean  @default(true)
+  breakDurationMinutes Int     @default(15)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// 2. Tasks & Projects (Vikunja & Super Productivity inspired)
+// -----------------------------------------------------------------------------
+
+model Task {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  status          String    @default("TODO") // "TODO" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+  priority        String    @default("MEDIUM") // "LOW" | "MEDIUM" | "HIGH" | "URGENT"
+  dueDate         DateTime?
+  scheduledDate   DateTime?
+  estimatedMinutes Int?
+  actualMinutes   Int       @default(0)
+  completedAt     DateTime?
+  startedAt       DateTime?
+  tags            String?   // JSON or comma separated
+  recurrenceRule  String?   // e.g. "FREQ=DAILY;INTERVAL=1"
+  externalId      String?   // For Vikunja / GitHub sync
+  externalSource  String?
+
+  projectId       String?
+  project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  courseId        String?
+  course          Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  researchProjectId String?
+  researchProject ResearchProject? @relation(fields: [researchProjectId], references: [id], onDelete: SetNull)
+
+  subtasks        Subtask[]
+  focusSessions   FocusSession[]
+  timeBlocks      TimeBlock[]
+  dependencies    TaskDependency[] @relation("DependentTasks")
+  dependentOn     TaskDependency[] @relation("PrerequisiteTasks")
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, dueDate])
+  @@index([userId, scheduledDate])
+}
+
+model Subtask {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title       String
+  completed   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([taskId])
+}
+
+model TaskDependency {
+  id              String   @id @default(cuid())
+  taskId          String
+  task            Task     @relation("DependentTasks", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnTaskId String
+  dependsOnTask   Task     @relation("PrerequisiteTasks", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  @@unique([taskId, dependsOnTaskId])
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  objective   String?
+  status      String    @default("ACTIVE") // "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED"
+  priority    String    @default("MEDIUM")
+  startDate   DateTime?
+  targetDate  DateTime?
+  color       String?   @default("#00e5ff")
+  category    String    @default("general") // "academic" | "technical" | "research" | "personal"
+
+  tasks       Task[]
+  milestones  Milestone[]
+  notes       Note[]
+  goals       Goal[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, status])
+}
+
+model Milestone {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  targetDate  DateTime?
+  completedAt DateTime?
+  completed   Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+}
+
+// -----------------------------------------------------------------------------
+// 3. Planner, Time Blocks & Focus Sessions
+// -----------------------------------------------------------------------------
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  isAllDay    Boolean   @default(false)
+  location    String?
+  category    String    @default("routine") // "class" | "exam" | "study" | "meeting" | "personal"
+  recurrenceRule String?
+  externalId  String?   // External calendar sync
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, startTime])
+}
+
+model TimeBlock {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  startTime   DateTime
+  endTime     DateTime
+  isFixed     Boolean   @default(false)
+  category    String    @default("focus") // "focus" | "course" | "research" | "revision" | "break"
+  taskId      String?
+  task        Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  completed   Boolean   @default(false)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, startTime])
+}
+
+model FocusSession {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId          String?
+  task            Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  courseId        String?
+  course          Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  topicId         String?
+  topic           SyllabusTopic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  targetMinutes   Int
+  actualMinutes   Int
+  startTime       DateTime
+  endTime         DateTime?
+  completed       Boolean   @default(true)
+  reflectionNotes String?
+  energyRating    Int?      // 1-5 scale
+  distractionCount Int      @default(0)
+  createdAt       DateTime  @default(now())
+
+  @@index([userId, startTime])
+}
+
+// -----------------------------------------------------------------------------
+// 4. Academics, Syllabus & Competitive Exam (GATE/ESE)
+// -----------------------------------------------------------------------------
+
+model Course {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code          String    // e.g. "CS301", "EE204"
+  name          String    // e.g. "Operating Systems", "Discrete Mathematics"
+  instructor    String?
+  semester      String?
+  syllabusUrl   String?
+  formulaNotes  String?
+  examDate      DateTime?
+  targetGrade   String?
+  confidence    Int       @default(3) // 1 to 5 scale
+  isGateSubject Boolean   @default(false)
+  weightage     Float?    // Marks weightage in exam
+
+  units         SyllabusUnit[]
+  tasks         Task[]
+  focusSessions FocusSession[]
+  notes         Note[]
+  quizAttempts  QuizAttempt[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model SyllabusUnit {
+  id          String    @id @default(cuid())
+  courseId    String
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  unitNumber  Int
+  title       String
+  description String?
+  topics      SyllabusTopic[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([courseId])
+}
+
+model SyllabusTopic {
+  id              String    @id @default(cuid())
+  unitId          String
+  unit            SyllabusUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  status          String    @default("NOT_STARTED") // "NOT_STARTED" | "IN_PROGRESS" | "REVISED" | "MASTERED"
+  confidenceLevel Int       @default(1) // 1-5
+  lastStudiedAt   DateTime?
+  nextRevisionAt  DateTime?
+  revisionCount   Int       @default(0)
+  practiceCount   Int       @default(0)
+
+  revisionRecords RevisionRecord[]
+  focusSessions   FocusSession[]
+  quizQuestions   QuizQuestion[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([unitId])
+  @@index([nextRevisionAt])
+}
+
+model RevisionRecord {
+  id              String        @id @default(cuid())
+  topicId         String
+  topic           SyllabusTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  studySessionId  String?
+  studiedAt       DateTime      @default(now())
+  intervalDays    Int           @default(1)
+  easeFactor      Float         @default(2.5) // SuperMemo SM-2 parameter
+  rating          Int           // 1 to 5 recall rating
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  @@index([topicId])
+}
+
+model QuizAttempt {
+  id          String    @id @default(cuid())
+  userId      String
+  courseId    String?
+  course      Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  title       String
+  score       Float
+  totalScore  Float
+  percentage  Float
+  timeTakenSec Int
+  questionsData String  // JSON array of question, options, answer, explanation
+  completedAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model QuizQuestion {
+  id          String        @id @default(cuid())
+  topicId     String?
+  topic       SyllabusTopic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  question    String
+  optionsJson String        // JSON array of options
+  correctIndex Int
+  explanation String?
+  difficulty  String        @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
+  source      String?       // "GATE 2022", "ESE 2019", "AI-Generated"
+  createdAt   DateTime      @default(now())
+
+  @@index([topicId])
+}
+
+// -----------------------------------------------------------------------------
+// 5. Research Lab
+// -----------------------------------------------------------------------------
+
+model ResearchProject {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  abstract    String?
+  hypotheses  String?
+  status      String    @default("ACTIVE") // "IDEA" | "ACTIVE" | "REVIEW" | "PUBLISHED"
+  targetVenue String?   // e.g. "IEEE Transactions on Computers", "NeurIPS"
+
+  papers      ResearchPaper[]
+  experiments Experiment[]
+  datasets    Dataset[]
+  tasks       Task[]
+  notes       Note[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model ResearchPaper {
+  id                String    @id @default(cuid())
+  researchProjectId String
+  researchProject   ResearchProject @relation(fields: [researchProjectId], references: [id], onDelete: Cascade)
+  title             String
+  authors           String?
+  venue             String?
+  year              Int?
+  doi               String?
+  arxivId           String?
+  abstract          String?
+  pdfUrl            String?
+  readingStatus     String    @default("TO_READ") // "TO_READ" | "READING" | "READ" | "REFERENCED"
+  userKeyTakeaways  String?
+  citationBibtex    String?
+  retrievedSource   String?   // "OpenAlex" | "arXiv" | "Manual"
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  citations         Citation[]
+
+  @@index([researchProjectId])
+  @@index([doi])
+}
+
+model Citation {
+  id              String    @id @default(cuid())
+  paperId         String
+  paper           ResearchPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  citedTitle      String
+  citedAuthors    String?
+  citedYear       Int?
+  citedVenue      String?
+  citedDoi        String?
+  createdAt       DateTime  @default(now())
+
+  @@index([paperId])
+}
+
+model Dataset {
+  id                String    @id @default(cuid())
+  researchProjectId String
+  researchProject   ResearchProject @relation(fields: [researchProjectId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?
+  sourceUrl         String?
+  sizeFormatted     String?
+  sampleCount       Int?
+  license           String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([researchProjectId])
+}
+
+model Experiment {
+  id                String    @id @default(cuid())
+  researchProjectId String
+  researchProject   ResearchProject @relation(fields: [researchProjectId], references: [id], onDelete: Cascade)
+  experimentCode    String    // e.g. "EXP-001"
+  objective         String
+  methodDescription String
+  configJson        String?   // Hyperparameters, hardware, seed
+  metricsJson       String?   // Accuracy, latency, loss
+  resultSummary     String?
+  observations      String?
+  limitations       String?
+  isReproducible    Boolean   @default(true)
+  runTimestamp      DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([researchProjectId])
+}
+
+// -----------------------------------------------------------------------------
+// 6. Knowledge Base & Notes (AppFlowy inspired)
+// -----------------------------------------------------------------------------
+
+model NoteCollection {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  icon        String?  @default("Folder")
+  color       String?  @default("#3b82f6")
+  notes       Note[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Note {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectionId      String?
+  collection        NoteCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  title             String
+  contentMarkdown   String    @default("")
+  tags              String?   // Comma separated
+  isPinned          Boolean   @default(false)
+  isArchived        Boolean   @default(false)
+
+  projectId         String?
+  project           Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  courseId          String?
+  course            Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  researchProjectId String?
+  researchProject   ResearchProject? @relation(fields: [researchProjectId], references: [id], onDelete: SetNull)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId, isPinned])
+  @@index([userId, title])
+}
+
+// -----------------------------------------------------------------------------
+// 7. Learning Studio (Languages, GK, Psychology, Spirituality, Reading)
+// -----------------------------------------------------------------------------
+
+model LearningModule {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String    // "languages" | "knowledge" | "psychology" | "spirituality" | "reading"
+  title       String
+  description String?
+  level       String?   // "Beginner" | "Intermediate" | "Advanced"
+  progressPct Float     @default(0)
+  items       LearningItem[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, category])
+}
+
+model LearningItem {
+  id          String    @id @default(cuid())
+  moduleId    String
+  module      LearningModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title       String
+  contentJson String    // Body text, quiz data, audio URL, source reference
+  completed   Boolean   @default(false)
+  lastStudied DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([moduleId])
+}
+
+model VocabularyCard {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language      String    // "Spanish", "German", "Japanese", "French", "Sanskrit", "Mandarin", "Russian", "Hindi"
+  word          String
+  translation   String
+  pronunciation String?
+  exampleSentence String?
+  notes         String?
+  easeFactor    Float     @default(2.5)
+  intervalDays  Int       @default(1)
+  repetitions   Int       @default(0)
+  nextReviewAt  DateTime  @default(now())
+  lastStudiedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, language, nextReviewAt])
+}
+
+model Book {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  author          String
+  coverUrl        String?
+  format          String    @default("BOOK") // "BOOK" | "AUDIOBOOK" | "ARTICLE"
+  sourceUrl       String?
+  totalUnits      Int       @default(100) // Pages or Audio Seconds
+  completedUnits  Int       @default(0)
+  status          String    @default("WANT_TO_READ") // "WANT_TO_READ" | "READING" | "COMPLETED"
+  rating          Int?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId, status])
+}
+
+// -----------------------------------------------------------------------------
+// 8. Habits & Long-term Goals
+// -----------------------------------------------------------------------------
+
+model Habit {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  frequency       String    @default("DAILY") // "DAILY" | "WEEKDAYS" | "WEEKLY"
+  targetCount     Int       @default(1)
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  color           String?   @default("#00e5ff")
+  category        String    @default("health") // "study" | "health" | "mind" | "skill"
+  isPaused        Boolean   @default(false)
+  logs            HabitLog[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model HabitLog {
+  id          String   @id @default(cuid())
+  habitId     String
+  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  dateString  String   // "YYYY-MM-DD" in user's timezone
+  completed   Boolean  @default(true)
+  count       Int      @default(1)
+  reflection  String?
+  createdAt   DateTime @default(now())
+
+  @@unique([habitId, dateString])
+  @@index([habitId, dateString])
+}
+
+model Goal {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  objective   String?
+  category    String    @default("academics") // "academics" | "career" | "research" | "personal"
+  targetDate  DateTime?
+  status      String    @default("IN_PROGRESS") // "IN_PROGRESS" | "ACHIEVED" | "POSTPONED"
+  progressPct Float     @default(0)
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestones  GoalMilestone[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model GoalMilestone {
+  id          String   @id @default(cuid())
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title       String
+  completed   Boolean  @default(false)
+  targetDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([goalId])
+}
+
+// -----------------------------------------------------------------------------
+// 9. Analytics & Productivity Reviews
+// -----------------------------------------------------------------------------
+
+model ProductivityReview {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodType      String   // "DAILY" | "WEEKLY" | "MONTHLY"
+  startDate       DateTime
+  endDate         DateTime
+  tasksPlanned    Int      @default(0)
+  tasksCompleted  Int      @default(0)
+  totalFocusMin   Int      @default(0)
+  courseStudyMin  Int      @default(0)
+  researchMin     Int      @default(0)
+  revisionsMade   Int      @default(0)
+  highlightsJson  String?  // JSON array of what went well
+  challengesJson  String?  // JSON array of hurdles
+  adjustmentsJson String?  // JSON array of adjustments for next period
+  aiSummary       String?
+  createdAt       DateTime @default(now())
+
+  @@index([userId, periodType, startDate])
+}
+
+// -----------------------------------------------------------------------------
+// 10. AI Assistant, Conversations & Memory
+// -----------------------------------------------------------------------------
+
+model Conversation {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String    @default("New Session")
+  modelUsed   String?
+  messages    Message[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Message {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role            String       // "user" | "assistant" | "system" | "tool"
+  content         String
+  toolCallsJson   String?      // Tool invocations
+  toolResultsJson String?      // Tool responses
+  createdAt       DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+model AIMemory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String   // "preference" | "academic" | "research" | "goal" | "general"
+  key         String
+  value       String
+  isApproved  Boolean  @default(true)
+  source      String?  // "User confirmed", "Inferred"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
+// -----------------------------------------------------------------------------
+// 11. Integrations Hub & Connectors
+// -----------------------------------------------------------------------------
+
+model IntegrationAccount {
+  id                String      @id @default(cuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String      // "OPENROUTER" | "OLLAMA" | "OPENALEX" | "ARXIV" | "WIKIPEDIA" | "GITHUB" | "VIKUNJA" | "N8N"
+  status            String      @default("NOT_CONFIGURED") // "NOT_CONFIGURED" | "CONNECTED" | "ERROR" | "DISCONNECTED"
+  credentialsEnc    String?     // Encrypted API token or config JSON
+  endpointUrl       String?
+  lastSyncAt        DateTime?
+  lastError         String?
+  syncCursors       SyncCursor[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+model SyncCursor {
+  id                    String             @id @default(cuid())
+  integrationAccountId  String
+  integrationAccount    IntegrationAccount @relation(fields: [integrationAccountId], references: [id], onDelete: Cascade)
+  resourceType          String             // "tasks" | "papers" | "events"
+  cursorValue           String
+  lastSyncedRecordCount Int                @default(0)
+  updatedAt             DateTime           @updatedAt
+
+  @@unique([integrationAccountId, resourceType])
+}
+
+// -----------------------------------------------------------------------------
+// 12. Automations Engine (n8n-inspired)
+// -----------------------------------------------------------------------------
+
+model Automation {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  triggerType String    // "ON_TASK_COMPLETED" | "ON_FOCUS_COMPLETED" | "ON_REVISION_DUE" | "CRON_SCHEDULE" | "WEBHOOK"
+  triggerConfigJson String?
+  actionsJson String    // Array of action steps with parameters
+  isEnabled   Boolean   @default(true)
+  executions  AutomationExecution[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, isEnabled])
+}
+
+model AutomationExecution {
+  id            String     @id @default(cuid())
+  automationId  String
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  status        String     // "SUCCESS" | "FAILED" | "RETRYING"
+  triggerPayload String?
+  stepsResultJson String?
+  errorMessage  String?
+  executedAt    DateTime   @default(now())
+
+  @@index([automationId])
+}
+
+// -----------------------------------------------------------------------------
+// 13. Notifications & Audit Events
+// -----------------------------------------------------------------------------
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String   // "DEADLINE" | "REVISION" | "REVIEW" | "INTEGRATION" | "AUTOMATION"
+  title       String
+  message     String
+  link        String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String   // e.g. "AUTH_LOGIN", "DATA_EXPORT", "AI_TOOL_RUN", "WIPE_DATA"
+  ipAddress   String?
+  userAgent   String?
+  detailsJson String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
