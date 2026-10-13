@@ -37,6 +37,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const { message, modelId, conversationId, executeConfirmedTool } = body;
+    const activeModelId = modelId || body.model || "openrouter/free";
 
     // Direct confirmation execution of a mutating tool with strict validation and idempotency
     if (executeConfirmedTool) {
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
         data: {
           userId,
           title: message.substring(0, 30),
-          modelUsed: modelId || "openrouter/free",
+          modelUsed: activeModelId,
         },
       });
     }
@@ -136,7 +137,7 @@ export async function POST(req: Request) {
     const response = await aiGateway.chat({
       userId,
       messages: formattedHistory,
-      modelId: modelId || "openrouter/free",
+      modelId: activeModelId,
     });
 
     // Save assistant response

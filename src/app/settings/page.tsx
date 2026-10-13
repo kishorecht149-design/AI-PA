@@ -120,12 +120,13 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: "Ping. State system ready in 1 word.",
-          model: selectedModel,
+          modelId: selectedModel,
         }),
       });
       const data = await res.json();
-      if (data.reply) {
-        setTestResult(`✓ Active: "${data.reply.slice(0, 50)}"`);
+      const replyText = data.message?.content || data.reply;
+      if (replyText) {
+        setTestResult(`✓ Active: "${replyText.slice(0, 50)}"`);
       } else {
         setTestResult("⚠️ AI Gateway replied without content.");
       }
@@ -327,23 +328,29 @@ export default function SettingsPage() {
           AMAHAS prioritizes free hosted router endpoints (<strong>openrouter/free</strong>) and local inference (<strong>Ollama</strong>). Paid models are never engaged without explicit selection.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {KNOWN_FREE_MODELS.map((m) => (
             <div
               key={m.id}
-              className={`p-3 rounded-xl border text-xs space-y-1 ${
+              onClick={() => setSelectedModel(m.id)}
+              className={`p-3.5 rounded-xl border text-xs space-y-1.5 cursor-pointer transition-all ${
                 selectedModel === m.id
-                  ? "bg-violet-500/15 border-violet-500/40 text-[var(--text-primary)]"
-                  : "bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-secondary)]"
+                  ? "bg-violet-500/15 border-violet-500/50 text-[var(--text-primary)] ring-1 ring-violet-500/50 shadow-sm"
+                  : "bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-focus)]"
               }`}
             >
               <div className="font-bold flex items-center justify-between">
-                <span>{m.name}</span>
-                <span className="text-[10px] text-emerald-400 uppercase font-mono">
+                <span className="flex items-center gap-1.5 truncate">
+                  {selectedModel === m.id && (
+                    <span className="w-2 h-2 rounded-full bg-violet-400 shrink-0 animate-pulse" />
+                  )}
+                  {m.name}
+                </span>
+                <span className="text-[10px] text-emerald-400 uppercase font-mono shrink-0 ml-1.5">
                   {m.isFree ? "Free Tier" : "Local"}
                 </span>
               </div>
-              <p className="text-[11px] text-[var(--text-muted)]">{m.description}</p>
+              <p className="text-[11px] text-[var(--text-muted)] line-clamp-2">{m.description}</p>
             </div>
           ))}
         </div>
