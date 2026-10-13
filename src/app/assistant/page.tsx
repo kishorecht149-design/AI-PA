@@ -151,6 +151,14 @@ export default function AssistantPage() {
       if (data.message) {
         setMessages((prev) => [...prev, data.message]);
         speakText(data.message.content);
+      } else if (data.error) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `Notice: ${data.error}`,
+          },
+        ]);
       }
 
       // Check if tool requires user confirmation
