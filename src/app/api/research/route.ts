@@ -59,7 +59,61 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, project }, { status: 201 });
     }
 
-    // 2. Add paper to a research project
+    // 2. Create a new Experiment
+    if (body.action === "CREATE_EXPERIMENT" || body.experimentCode || (body.objective && !body.title)) {
+      const {
+        researchProjectId,
+        experimentCode,
+        objective,
+        methodDescription,
+        configJson,
+        metricsJson,
+        resultSummary,
+        observations,
+        limitations,
+        isReproducible,
+      } = body;
+
+      if (!objective?.trim()) {
+        return NextResponse.json({ error: "Experiment objective is required" }, { status: 400 });
+      }
+
+      let targetProjectId = researchProjectId;
+      if (!targetProjectId) {
+        const firstProject = await prisma.researchProject.findFirst({ where: { userId } });
+        if (firstProject) {
+          targetProjectId = firstProject.id;
+        } else {
+          const defaultProj = await prisma.researchProject.create({
+            data: {
+              userId,
+              title: "Literature Review & Core Research",
+              status: "ACTIVE",
+            },
+          });
+          targetProjectId = defaultProj.id;
+        }
+      }
+
+      const experiment = await prisma.experiment.create({
+        data: {
+          researchProjectId: targetProjectId,
+          experimentCode: experimentCode?.trim() || `EXP-${Date.now().toString().slice(-4)}`,
+          objective: objective.trim(),
+          methodDescription: methodDescription?.trim() || "Empirical benchmarking run",
+          configJson: typeof configJson === "object" ? JSON.stringify(configJson) : configJson?.trim() || null,
+          metricsJson: typeof metricsJson === "object" ? JSON.stringify(metricsJson) : metricsJson?.trim() || null,
+          resultSummary: resultSummary?.trim() || null,
+          observations: observations?.trim() || null,
+          limitations: limitations?.trim() || null,
+          isReproducible: isReproducible !== false,
+        },
+      });
+
+      return NextResponse.json({ success: true, experiment }, { status: 201 });
+    }
+
+    // 3. Add paper to a research project
     const { researchProjectId, title, authors, year, doi, arxivId, abstract, pdfUrl, source, readingStatus } = body;
 
     if (!title?.trim()) {
@@ -167,6 +221,7 @@ export async function DELETE(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const paperId = searchParams.get("paperId");
+    const experimentId = searchParams.get("experimentId");
     const projectId = searchParams.get("projectId");
 
     if (paperId) {
@@ -181,6 +236,18 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: true });
     }
 
+    if (experimentId) {
+      const exp = await prisma.experiment.findUnique({
+        where: { id: experimentId },
+        include: { researchProject: true },
+      });
+      if (!exp || exp.researchProject.userId !== userId) {
+        return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 });
+      }
+      await prisma.experiment.delete({ where: { id: experimentId } });
+      return NextResponse.json({ success: true });
+    }
+
     if (projectId) {
       await prisma.researchProject.deleteMany({
         where: { id: projectId, userId },
@@ -188,7 +255,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ error: "Provide paperId or projectId" }, { status: 400 });
+    return NextResponse.json({ error: "Provide paperId, experimentId, or projectId" }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

@@ -15,6 +15,7 @@ import {
   Award,
   AlertCircle,
   Plus,
+  ArrowRight,
 } from "lucide-react";
 import { OnboardingModal } from "@/components/OnboardingModal";
 
@@ -257,13 +258,79 @@ export default function AcademicsPage() {
 
       {/* Course Cards & Hierarchical Syllabus */}
       {loading ? (
-        <div className="py-20 text-center text-xs text-slate-500">Loading syllabus...</div>
+        <div className="py-20 text-center text-xs text-zinc-500">Loading syllabus...</div>
+      ) : courses.length === 0 ? (
+        <div className="space-y-6 max-w-3xl mx-auto">
+          <div className="p-8 md:p-10 rounded-3xl border border-zinc-800 bg-[#0a0a0a] text-center space-y-4 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto text-white">
+              <GraduationCap className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-bold text-white">Configure Your Academic Track</h2>
+              <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+                Track unit-by-unit concept mastery, review weak areas, and automate spaced repetition with the SuperMemo SM-2 algorithm.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-all shadow-md inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Open Track Configurator
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-xs font-semibold text-zinc-400 flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-white" />
+              <span>Or Select a 1-Click Curriculum Track</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { id: "GATE_CS", title: "Computer Science & Engineering", desc: "Algorithms, Operating Systems, Computer Architecture, Networks & DBMS" },
+                { id: "GATE_EC", title: "Electronics & Communication", desc: "Networks, Signals & Systems, Electronic Devices, Analog & Digital" },
+                { id: "ECE_CORE", title: "University Engineering Core", desc: "Fundamental university engineering curriculum & lab units" },
+                { id: "ESE_ET", title: "Electronics & Telecommunication", desc: "Applied engineering services examination & telecom systems" },
+              ].map((trk) => (
+                <div
+                  key={trk.id}
+                  onClick={async () => {
+                    await fetch("/api/tracks", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "SELECT_TRACK", trackId: trk.id, clearDemo: false }),
+                    });
+                    fetchAcademics();
+                  }}
+                  className="p-4 rounded-2xl bg-[#0a0a0a] border border-zinc-800 hover:border-zinc-700 transition-all cursor-pointer group space-y-2 flex flex-col justify-between"
+                >
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-bold text-white group-hover:text-zinc-200">
+                      {trk.title}
+                    </h3>
+                    <p className="text-[11px] text-zinc-400 font-light">
+                      {trk.desc}
+                    </p>
+                  </div>
+                  <div className="pt-2 flex items-center justify-between text-[11px] text-zinc-500 group-hover:text-white transition-colors">
+                    <span>Load Track</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="space-y-6">
           {courses.map((course) => (
             <div
               key={course.id}
-              className="p-5 md:p-6 rounded-2xl bg-[#0b1120] border border-white/5 space-y-5"
+              className="p-5 md:p-6 rounded-2xl bg-[#0a0a0a] border border-zinc-800 space-y-5"
             >
               {/* Course Title Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">

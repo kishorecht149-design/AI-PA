@@ -272,6 +272,7 @@ Live Web Search Engine & Research:
               tools: this.getToolSchemas(),
               tool_choice: "auto",
             }),
+            signal: AbortSignal.timeout(6000),
           });
 
           if (!response.ok) {
@@ -349,6 +350,7 @@ Live Web Search Engine & Research:
                     tool_choice: "none",
                     temperature,
                   }),
+                  signal: AbortSignal.timeout(6000),
                 });
 
                 if (followUpResponse.ok) {
@@ -432,9 +434,9 @@ Live Web Search Engine & Research:
           role: "assistant",
           content: `Here is everything I can do for you as your personal AMAHAS assistant, ${userName}:
 
-### 1. 🔍 Live Web Search & YouTube Extraction
+### 1. 🔍 Live Web Search & Technical Research
 • I can search across websites and research databases for real-time documentation, papers, and facts.
-• I can find live **YouTube video lectures** and tutorial playlists on any topic (e.g. *"search for Applied Math GATE lectures"*).
+• I can find live **video tutorials** and conference presentations on any topic (e.g. *"search for Distributed Consensus Architecture"*).
 
 ### 2. 🗂️ Interactive Website & Dashboard Customization
 • I can create, customize, and organize custom sections on your dashboard (e.g. creating a **Resources** hub with folders for *Video Links*, *Books*, *Materials*).
@@ -451,9 +453,9 @@ Live Web Search Engine & Research:
 • Detect schedule conflicts and plan time-blocked deep work study sessions.
 
 ### 6. 🧠 Long-Term Personalized Memory
-• I remember your academic goals, preferences, and study habits to tailor every response.
+• I remember your goals, preferences, and workspace priorities to tailor every response.
 
-💡 *Try asking me right now: "Explain the superposition theorem", "Search for GATE CS algorithms videos", or "Add a new study task"!*`,
+💡 *Try asking me right now: "Explain the superposition theorem", "Search for Quantum Computing algorithms", or "Add a new focus task"!*`,
         },
       };
     }
@@ -502,7 +504,7 @@ Live Web Search Engine & Research:
 • **Model Quantization**: FP16 vs INT8 vs INT4 AWQ, outlier weight coordinate retention, memory bandwidth reduction.
 • **Attention Architectures**: Self-attention math, Key-Query-Value projection, KV caching.
 
-### 4. 📐 Applied Mathematics (GATE Core)
+### 4. 📐 Applied Mathematics & Computing
 • **Linear Algebra**: Eigenvalues, Eigenvectors, Cayley-Hamilton theorem, Rank of matrices.
 • **Calculus & Probability**: Multivariable calculus, Bayes theorem, Poisson & Normal distributions.
 
@@ -535,12 +537,12 @@ ${topResult.snippet || "Here is the core technical breakdown for this concept:"}
 Key Takeaways & Core Formula:
 • Understand the boundary conditions and governing equations.
 • Apply systematic analysis: break the circuit or system into independent sub-components.
-• Practice numerical problem-solving to reinforce retention under exam conditions.
+• Practice analytical problem-solving to reinforce retention and mastery.
 
 #### Recommended Lectures & Verified References:
 ${links}
 
-Would you like me to drill a sample GATE numerical question or break down a derivation step on this topic?`,
+Would you like me to drill a sample technical problem or break down a derivation step on this topic?`,
             },
             executedToolResults: [{ toolName: "search_web", result: searchRes }],
           };

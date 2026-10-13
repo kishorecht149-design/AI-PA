@@ -19,13 +19,13 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 import { ThemeBrowser } from "@/components/ThemeBrowser";
 
 export default function SettingsPage() {
-  const [profileName, setProfileName] = useState("Kishore");
+  const [profileName, setProfileName] = useState("");
   const [workingStart, setWorkingStart] = useState("08:30");
   const [workingEnd, setWorkingEnd] = useState("22:30");
   const [focusMin, setFocusMin] = useState(45);
   const [timeZone, setTimeZone] = useState("Asia/Kolkata");
-  const [examinationTrack, setExaminationTrack] = useState("GATE_EC");
-  const [targetExams, setTargetExams] = useState("GATE EC 2027");
+  const [examinationTrack, setExaminationTrack] = useState("GENERAL");
+  const [targetExams, setTargetExams] = useState("");
   const [fixedCommitments, setFixedCommitments] = useState("");
   const [learningPriorities, setLearningPriorities] = useState("");
   const [saving, setSaving] = useState(false);

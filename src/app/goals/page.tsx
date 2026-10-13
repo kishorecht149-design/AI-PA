@@ -11,6 +11,7 @@ import {
   X,
   Flag,
   Sparkles,
+  ArrowRight,
 } from "lucide-react";
 
 interface MilestoneItem {
@@ -31,6 +32,53 @@ interface GoalItem {
   project?: { name: string } | null;
   milestones: MilestoneItem[];
 }
+
+const STARTER_GOAL_TEMPLATES = [
+  {
+    title: "Publish Peer-Reviewed Research Paper",
+    objective: "Submit empirical benchmark paper to target international technical venue.",
+    category: "research",
+    milestones: [
+      "Conduct literature review of 15 papers",
+      "Formulate hypothesis & prototype setup",
+      "Run benchmark latency & accuracy tests",
+      "Complete conference camera-ready draft",
+    ],
+  },
+  {
+    title: "Full-Stack System Architecture Mastery",
+    objective: "Implement resilient microservices with event streaming and caching.",
+    category: "technical",
+    milestones: [
+      "Design database schema & indexing",
+      "Build async background worker queue",
+      "Implement robust rate limiting & auth",
+      "Deploy containerized multi-node cluster",
+    ],
+  },
+  {
+    title: "Master Systems & Computer Architecture Core",
+    objective: "Deep conceptual mastery of multi-level paging, TLB, and thread scheduling.",
+    category: "academics",
+    milestones: [
+      "Derive effective memory access times",
+      "Master deadlock prevention algorithms",
+      "Solve 50 previous examination problems",
+      "Achieve 95%+ topic recall confidence",
+    ],
+  },
+  {
+    title: "90-Min Daily Deep Focus Routine",
+    objective: "Build consistent high-retention technical focus blocks every morning.",
+    category: "personal",
+    milestones: [
+      "Zero notifications during 90-min sprint",
+      "Log daily session retrospective",
+      "Maintain 14-day consecutive streak",
+      "Review weekly accomplishments",
+    ],
+  },
+];
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<GoalItem[]>([]);
@@ -139,41 +187,115 @@ export default function GoalsPage() {
     await fetch(`/api/goals?id=${id}`, { method: "DELETE" });
   };
 
+  const handleCreateStarterGoal = async (tmpl: (typeof STARTER_GOAL_TEMPLATES)[0]) => {
+    setSubmitting(true);
+    try {
+      await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: tmpl.title,
+          objective: tmpl.objective,
+          category: tmpl.category,
+          milestones: tmpl.milestones,
+        }),
+      });
+      fetchGoals();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2.5">
-            <Target className="w-6 h-6 text-teal-400" />
+            <Target className="w-6 h-6 text-white" />
             Long-Term Goals &amp; OKRs
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Strategic milestones coordinating competitive exams, research publications, and career horizons.
+          <p className="text-xs text-zinc-400 mt-1">
+            Strategic milestones coordinating research, engineering achievements, and long-horizon objectives.
           </p>
         </div>
 
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-black font-semibold text-xs transition-all shadow-md shadow-teal-500/20"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-all shadow-md self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" /> New Goal
         </button>
       </div>
 
       {loading ? (
-        <div className="py-20 text-center text-xs text-slate-500">Loading goals...</div>
+        <div className="py-20 text-center text-xs text-zinc-500">Loading goals...</div>
       ) : goals.length === 0 ? (
-        <div className="py-16 text-center rounded-2xl border border-white/5 bg-white/[0.02] text-xs text-slate-500 space-y-2">
-          <Target className="w-8 h-8 mx-auto text-slate-600" />
-          <p>No goals defined yet. Create your first academic or exam milestone goal above.</p>
+        <div className="space-y-6 max-w-3xl mx-auto">
+          <div className="p-8 md:p-10 rounded-3xl border border-zinc-800 bg-[#0a0a0a] text-center space-y-4 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto text-white">
+              <Target className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-bold text-white">Set Your Strategic Goals</h2>
+              <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+                Break complex ambitions into actionable milestones, measure progress dynamically, and track execution over time.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-all shadow-md inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Create Custom Goal
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-xs font-semibold text-zinc-400 flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-white" />
+              <span>Or Choose a 1-Click Starter Goal Template</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {STARTER_GOAL_TEMPLATES.map((tmpl, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleCreateStarterGoal(tmpl)}
+                  className="p-4 rounded-2xl bg-[#0a0a0a] border border-zinc-800 hover:border-zinc-700 transition-all cursor-pointer group space-y-2 flex flex-col justify-between"
+                >
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+                      {tmpl.category}
+                    </span>
+                    <h3 className="text-xs font-bold text-white group-hover:text-zinc-200">
+                      {tmpl.title}
+                    </h3>
+                    <p className="text-[11px] text-zinc-400 font-light line-clamp-2">
+                      {tmpl.objective}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between text-[11px] text-zinc-500 group-hover:text-white transition-colors">
+                    <span>{tmpl.milestones.length} Milestones</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {goals.map((g) => (
             <div
               key={g.id}
-              className="p-5 rounded-2xl bg-[#0b1120] border border-white/5 space-y-4 flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-[#0a0a0a] border border-zinc-800 space-y-4 flex flex-col justify-between"
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">

@@ -147,16 +147,31 @@ export default function AssistantPage() {
         }),
       });
 
-      const data = await res.json();
-      if (data.message) {
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Server returned status ${res.status}.`);
+      }
+
+      if (data?.message) {
         setMessages((prev) => [...prev, data.message]);
         speakText(data.message.content);
-      } else if (data.error) {
+      } else if (data?.error) {
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
             content: `Notice: ${data.error}`,
+          },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "I'm right here with you! Let's organize your tasks, explore research papers, or review today's schedule.",
           },
         ]);
       }

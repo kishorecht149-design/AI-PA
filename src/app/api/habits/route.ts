@@ -17,6 +17,7 @@ export async function GET() {
           take: 14,
         },
       },
+      orderBy: { createdAt: "desc" },
     });
 
     const enhanced = habits.map((h) => ({
@@ -36,7 +37,32 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
+
+    // 1. Create a brand new habit
+    if (body.action === "CREATE" || (!body.habitId && body.name)) {
+      const { name, description, frequency, category } = body;
+      if (!name?.trim()) {
+        return NextResponse.json({ error: "Habit name is required" }, { status: 400 });
+      }
+
+      const habit = await prisma.habit.create({
+        data: {
+          userId,
+          name: name.trim(),
+          description: description?.trim() || null,
+          frequency: frequency || "DAILY",
+          category: category || "growth",
+        },
+      });
+
+      return NextResponse.json({ success: true, habit }, { status: 201 });
+    }
+
+    // 2. Toggle or log existing habit completion
     const { habitId, dateString, completed, reflection } = body;
+    if (!habitId) {
+      return NextResponse.json({ error: "Habit ID or Habit Name required" }, { status: 400 });
+    }
 
     const todayStr = dateString || new Date().toISOString().substring(0, 10);
 
@@ -70,6 +96,24 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, log });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const userId = await resolveApiUserId();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const habitId = searchParams.get("id");
+    if (!habitId) return NextResponse.json({ error: "Habit ID is required" }, { status: 400 });
+
+    await prisma.habitLog.deleteMany({ where: { habitId } });
+    await prisma.habit.deleteMany({ where: { id: habitId, userId } });
+
+    return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
