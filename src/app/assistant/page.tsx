@@ -18,6 +18,14 @@ import {
   Check,
   X,
   Lock,
+  Plus,
+  CheckSquare,
+  Video,
+  Clock,
+  Folder,
+  GraduationCap,
+  ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import { KNOWN_FREE_MODELS } from "@/lib/ai-gateway";
 
@@ -42,6 +50,13 @@ export default function AssistantPage() {
   const [memories, setMemories] = useState<any[]>([]);
   const [showMemoryDrawer, setShowMemoryDrawer] = useState(false);
 
+  // Quick Action Menu & Task Selector
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [showTaskPicker, setShowTaskPicker] = useState(false);
+  const [userTasks, setUserTasks] = useState<any[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+
   // Pending tool confirmation
   const [pendingTool, setPendingTool] = useState<PendingToolConfirmation | null>(null);
 
@@ -50,6 +65,32 @@ export default function AssistantPage() {
   const [ttsEnabled, setTtsEnabled] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const fetchUserTasks = async () => {
+    setLoadingTasks(true);
+    try {
+      const res = await fetch("/api/tasks");
+      if (res.ok) {
+        const data = await res.json();
+        setUserTasks(data.tasks || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setShowActionMenu(false);
+        setShowTaskPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -329,7 +370,214 @@ export default function AssistantPage() {
         </div>
 
         {/* Chat Input Bar */}
-        <form onSubmit={handleSend} className="mt-4 pt-3 border-t border-white/5 flex gap-2">
+        <form onSubmit={handleSend} className="mt-4 pt-3 border-t border-white/5 flex gap-2 relative">
+          {/* Quick Action '+' Menu Button */}
+          <div className="relative" ref={actionMenuRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowActionMenu(!showActionMenu);
+                setShowTaskPicker(false);
+              }}
+              className={`p-3 rounded-xl border text-xs transition-all flex items-center justify-center ${
+                showActionMenu
+                  ? "bg-violet-600/30 border-violet-500 text-violet-200"
+                  : "bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10"
+              }`}
+              title="Quick Actions & Task Selector (+)"
+            >
+              <Plus className={`w-4 h-4 transition-transform duration-200 ${showActionMenu ? "rotate-45 text-violet-400" : ""}`} />
+            </button>
+
+            {/* Quick Action Popover Menu */}
+            {showActionMenu && (
+              <div className="absolute bottom-full mb-2 left-0 w-72 sm:w-80 rounded-2xl bg-[#0b1120] border border-white/15 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 space-y-1 backdrop-blur-xl">
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/5 flex items-center justify-between">
+                  <span>Assistant Quick Tools</span>
+                  <span className="text-violet-400 font-mono">1-Click</span>
+                </div>
+
+                {!showTaskPicker ? (
+                  <div className="max-h-64 overflow-y-auto space-y-0.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTaskPicker(true);
+                        fetchUserTasks();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs text-slate-200 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400">
+                        <CheckSquare className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-100">Select from My Tasks</div>
+                        <div className="text-[10px] text-slate-400">Pick a pending task to work on</div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInput("Search web for YouTube video links on: ");
+                        setShowActionMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs text-slate-200 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="p-1 rounded-lg bg-red-500/20 text-red-400">
+                        <Video className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-100">Search Web &amp; YouTube</div>
+                        <div className="text-[10px] text-slate-400">Find tutorials, video links &amp; docs</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInput("Schedule a 45-minute focus block for: ");
+                        setShowActionMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs text-slate-200 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="p-1 rounded-lg bg-blue-500/20 text-blue-400">
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-100">Schedule Focus Block</div>
+                        <div className="text-[10px] text-slate-400">Add to planner &amp; calendar</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInput("Create a section on my dashboard named Resources with folders for Video Links, Online Materials, Books, Information");
+                        setShowActionMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs text-slate-200 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="p-1 rounded-lg bg-amber-500/20 text-amber-400">
+                        <Folder className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-100">Customize Dashboard</div>
+                        <div className="text-[10px] text-slate-400">Create sections &amp; folders</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInput("Quiz me on GATE syllabus topic: ");
+                        setShowActionMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs text-slate-200 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="p-1 rounded-lg bg-purple-500/20 text-purple-400">
+                        <GraduationCap className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-100">GATE Practice Quiz</div>
+                        <div className="text-[10px] text-slate-400">3-question SM-2 concept drill</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInput("Draw a visual Mermaid mindmap diagram for: ");
+                        setShowActionMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs text-slate-200 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="p-1 rounded-lg bg-cyan-500/20 text-cyan-400">
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-100">Concept Map / Diagram</div>
+                        <div className="text-[10px] text-slate-400">Generate flowchart or circuit</div>
+                      </div>
+                    </button>
+                  </div>
+                ) : (
+                  /* Task Picker Submenu */
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center justify-between px-2 pb-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setShowTaskPicker(false)}
+                        className="text-[11px] text-violet-400 hover:underline flex items-center gap-1 font-medium"
+                      >
+                        ← Back to actions
+                      </button>
+                      <span className="text-[10px] text-slate-400">
+                        {userTasks.length} tasks
+                      </span>
+                    </div>
+
+                    <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+                      {loadingTasks ? (
+                        <div className="text-center py-4 text-xs text-slate-400 animate-pulse">
+                          Loading your tasks...
+                        </div>
+                      ) : userTasks.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-slate-400 space-y-1">
+                          <div>No pending tasks found.</div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInput("Create task: ");
+                              setShowActionMenu(false);
+                            }}
+                            className="text-violet-400 hover:underline text-[11px]"
+                          >
+                            + Create new task
+                          </button>
+                        </div>
+                      ) : (
+                        userTasks.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              setInput(`Help me work on my task: "${t.title}" (Priority: ${t.priority})`);
+                              setShowActionMenu(false);
+                            }}
+                            className="w-full flex items-start gap-2 p-2 rounded-xl text-left text-xs bg-white/[0.03] hover:bg-white/10 transition-colors border border-white/5"
+                          >
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 mt-0.5 ${
+                                t.priority === "URGENT"
+                                  ? "bg-red-500/20 text-red-400"
+                                  : t.priority === "HIGH"
+                                  ? "bg-amber-500/20 text-amber-400"
+                                  : "bg-blue-500/20 text-blue-400"
+                              }`}
+                            >
+                              {t.priority}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-slate-100 font-medium truncate">{t.title}</div>
+                              {t.dueDate && (
+                                <div className="text-[10px] text-slate-400">
+                                  Due: {new Date(t.dueDate).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Voice Input Button */}
           <button
             type="button"
             onClick={toggleVoiceRecording}
@@ -347,7 +595,7 @@ export default function AssistantPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask assistant to schedule tasks, drill GATE syllabus concepts, or search papers..."
+            placeholder="Ask assistant to search web, schedule tasks, drill GATE syllabus concepts, or create dashboard sections..."
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-violet-400 transition-colors"
           />
 

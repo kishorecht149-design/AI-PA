@@ -383,11 +383,75 @@ Live Web Search Engine & Research:
       }
     }
 
-    // 4. Resilient Offline Learning Partner Fallback
+    // 4. Pollinations AI Zero-Key Fallback (100% Free, Unlimited, No Rate Limits)
+    try {
+      const pollRes = await fetch("https://text.pollinations.ai/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: finalMessages,
+          model: "openai",
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (pollRes.ok) {
+        const pollText = await pollRes.text();
+        if (pollText && pollText.trim()) {
+          return {
+            message: {
+              role: "assistant",
+              content: pollText.trim(),
+            },
+          };
+        }
+      }
+    } catch (pollErr: any) {
+      console.warn("Pollinations fallback skipped:", pollErr.message);
+    }
+
+    // 5. Intelligent Offline & Direct Execution Fallback
     const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase() || "";
 
-    // Casual friendly greetings
-    if (/^(hi|hello|hey|yo|greetings|good morning|good evening|howdy)/i.test(lastUserMsg.trim())) {
+    // A. Direct Web Search & YouTube / Video links execution
+    if (
+      lastUserMsg.includes("search") ||
+      lastUserMsg.includes("youtube") ||
+      lastUserMsg.includes("video") ||
+      lastUserMsg.includes("link") ||
+      lastUserMsg.includes("tutorial") ||
+      lastUserMsg.includes("website") ||
+      lastUserMsg.includes("find") ||
+      lastUserMsg.includes("paper")
+    ) {
+      let query = lastUserMsg
+        .replace(/^(hey|hi|hello|please|bro|can you|could you)\s+/gi, "")
+        .replace(/^(search for|search|find|look up|get|give me)\s+/gi, "")
+        .replace(/^(youtube video links? of|youtube video links? for|youtube videos? of|youtube videos? for|video links? of|video links? for|videos? of|videos? for|links? of|links? for|tutorials? of|tutorials? for|tutorials? in)\s+/gi, "")
+        .trim();
+      if (!query) query = lastUserMsg;
+
+      try {
+        const searchResult = await APPLICATION_TOOLS["search_web"].execute(userId, { query });
+        if (searchResult.results && searchResult.results.length > 0) {
+          const items = searchResult.results
+            .map((r: any, idx: number) => `${idx + 1}. **[${r.title}](${r.url})**\n   ${r.snippet || "Click to open webpage"}`)
+            .join("\n\n");
+          return {
+            message: {
+              role: "assistant",
+              content: `Here are the top video tutorials and live resources I found for **"${query}"**:\n\n${items}\n\n💡 *Tip: Would you like me to bookmark these links into your dashboard Resources section?*`,
+            },
+            executedToolResults: [{ toolName: "search_web", result: searchResult }],
+          };
+        }
+      } catch (searchErr: any) {
+        console.warn("Direct web search fallback error:", searchErr.message);
+      }
+    }
+
+    // B. Pure greetings (only when user exclusively sent a hello/hey)
+    if (/^(hi|hello|hey|yo|greetings|good morning|good afternoon|good evening|howdy)(\s+bro|\s+there|\s+amahas|\s+assistant)?[!.]*$/i.test(lastUserMsg.trim())) {
       return {
         message: {
           role: "assistant",
@@ -396,6 +460,7 @@ Live Web Search Engine & Research:
       };
     }
 
+    // C. Task queries
     if (lastUserMsg.includes("task") || lastUserMsg.includes("todo") || lastUserMsg.includes("homework")) {
       const tasks = await prisma.task.findMany({
         where: { userId, status: "TODO" },
@@ -411,6 +476,7 @@ Live Web Search Engine & Research:
       };
     }
 
+    // D. Course and GATE syllabus queries
     if (lastUserMsg.includes("gate") || lastUserMsg.includes("course") || lastUserMsg.includes("syllabus") || lastUserMsg.includes("exam")) {
       const courses = await prisma.course.findMany({
         where: { userId },
