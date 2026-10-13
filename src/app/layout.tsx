@@ -49,7 +49,10 @@ export default async function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="bg-[#070b14] text-slate-100 antialiased selection:bg-cyan-500/20 selection:text-cyan-200">
+      <body
+        suppressHydrationWarning
+        className="bg-[#070b14] text-slate-100 antialiased selection:bg-cyan-500/20 selection:text-cyan-200"
+      >
         <ThemeProvider>
           <AppShell userName={userName}>{children}</AppShell>
         </ThemeProvider>
