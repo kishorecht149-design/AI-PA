@@ -8,9 +8,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:seed": "node scripts/seed.mjs",
+    "switch-db": "node scripts/switch-db.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {

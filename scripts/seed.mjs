@@ -34,7 +34,7 @@ async function main() {
     data: {
       email: "student@amahas.internal",
       passwordHash,
-      name: "Kishore Kumar",
+      name: "Kishore",
       role: "student",
       profile: {
         create: {
