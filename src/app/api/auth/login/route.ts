@@ -8,7 +8,7 @@ import {
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, rememberMe } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -35,16 +35,17 @@ export async function POST(req: Request) {
       role: user.role,
     });
 
+    const maxAgeSeconds = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
+
     const res = NextResponse.json({
       success: true,
       user: { id: user.id, email: user.email, name: user.name },
     });
 
-    res.cookies.set(
-      sessionCookieOptions.name,
-      token,
-      sessionCookieOptions.options
-    );
+    res.cookies.set(sessionCookieOptions.name, token, {
+      ...sessionCookieOptions.options,
+      maxAge: maxAgeSeconds,
+    });
 
     return res;
   } catch (err: any) {

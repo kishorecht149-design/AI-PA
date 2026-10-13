@@ -15,7 +15,7 @@ export function AppShell({
   const [commandBarOpen, setCommandBarOpen] = useState(false);
   const pathname = usePathname();
 
-  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isFullWidthPage = pathname === "/" || pathname === "/login" || pathname === "/signup";
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -28,7 +28,7 @@ export function AppShell({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  if (isAuthPage) {
+  if (isFullWidthPage) {
     return (
       <main className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-150">
         {children}

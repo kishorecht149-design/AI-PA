@@ -1,9 +1,8 @@
-import { HomeClient } from "@/components/HomeClient";
+import { CreativePortal } from "@/components/CreativePortal";
 import { getSessionUser } from "@/lib/auth";
 
 export default async function HomePage() {
   const user = await getSessionUser();
-  const userName = user?.name || "Kishore";
 
-  return <HomeClient userName={userName} />;
+  return <CreativePortal currentUser={user} />;
 }
