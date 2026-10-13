@@ -8,20 +8,18 @@ import {
   ArrowRight,
   Shield,
   Bot,
-  Layers,
   BookOpen,
   FlaskConical,
-  CheckCircle2,
   Lock,
   Mail,
   User,
-  ChevronRight,
-  Zap,
   Clock,
-  Compass,
+  Zap,
+  CheckCircle2,
 } from "lucide-react";
 import { AmahasLogo } from "@/components/brand/AmahasLogo";
-import { AiOrb } from "@/components/AiOrb";
+import { Interactive3DScene } from "@/components/canvas/Interactive3DScene";
+import { Perspective3DShowcase } from "@/components/canvas/Perspective3DShowcase";
 
 interface CreativePortalProps {
   currentUser?: {
@@ -33,23 +31,20 @@ interface CreativePortalProps {
 
 export function CreativePortal({ currentUser }: CreativePortalProps) {
   const router = useRouter();
-  const [activeStep, setActiveStep] = useState<"welcome" | "signin">(
-    currentUser ? "welcome" : "welcome"
-  );
+  const [activeStep, setActiveStep] = useState<"welcome" | "signin">("welcome");
   const [authMode, setAuthMode] = useState<"google" | "credentials">("google");
 
-  // Authentication inputs (strictly clean and empty by default)
+  // Inputs initialize strictly empty for a clean, public experience
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Google account input for separate users (strictly clean)
   const [googleEmail, setGoogleEmail] = useState("");
   const [googleName, setGoogleName] = useState("");
 
-  // Remember login option (persists 30-day session via cookie + localStorage)
+  // Remember login session persistence (30 days)
   const [rememberMe, setRememberMe] = useState(true);
 
-  // States
+  // Loading & status
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState("");
@@ -91,7 +86,6 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
         throw new Error(data.error || "Google sign-in failed. Please verify your details.");
       }
 
-      // Store remember preference
       if (typeof window !== "undefined") {
         if (rememberMe) {
           localStorage.setItem("amahas_remember_login", "true");
@@ -164,44 +158,49 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden flex flex-col justify-between selection:bg-white/20 selection:text-white">
-      {/* Pitch-Black Ambient Lighting (No Blue/Cyan Cast) */}
-      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] rounded-full bg-zinc-600/[0.03] blur-[160px] pointer-events-none" />
-      <div className="absolute top-[35%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full bg-white/[0.015] blur-[180px] pointer-events-none" />
+      {/* Interactive 3D Canvas Background (Rotating Polyhedron Mesh & Particle Field) */}
+      <Interactive3DScene />
 
-      {/* Subtle Halo Rotation Animation */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] rounded-full border border-white/[0.03] pointer-events-none animate-halo-spin" />
+      {/* Subtle Radial Glows for Contrast */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[550px] bg-white/[0.02] rounded-full blur-[160px] pointer-events-none" />
 
-      {/* Top Header */}
+      {/* Production-Grade Navigation Header */}
       <header className="relative z-20 max-w-7xl mx-auto w-full px-6 py-6 flex items-center justify-between border-b border-zinc-900/80 backdrop-blur-xl">
         <Link href="/" className="flex items-center gap-3">
           <AmahasLogo variant="primary" size="md" />
         </Link>
 
+        {/* Executive Header Controls (Clean & Production-Grade) */}
         <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/60 border border-zinc-800 text-[11px] text-zinc-400 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>v2.6 Stable</span>
-          </div>
-
           {currentUser ? (
             <Link
               href="/dashboard"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-semibold transition-all shadow-lg hover:shadow-white/10"
+              className="px-5 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-semibold transition-all shadow-lg hover:shadow-white/10 flex items-center gap-2"
             >
-              <span>Workspace ({currentUser.name})</span>
+              <span>Open Workspace</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           ) : (
-            <button
-              onClick={() => {
-                setActiveStep("signin");
-                setAuthMode("credentials");
-              }}
-              className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition-all"
-            >
-              Sign In
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setActiveStep("signin");
+                  setAuthMode("credentials");
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white transition-colors"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => {
+                  setActiveStep("signin");
+                  setAuthMode("google");
+                }}
+                className="px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-semibold transition-all shadow-md"
+              >
+                Get Started
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -209,37 +208,29 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
       {/* Main Dynamic Workspace Stage */}
       <main className="relative z-10 max-w-6xl mx-auto w-full px-6 py-12 md:py-16 flex-1 flex flex-col justify-center items-center">
         {activeStep === "welcome" ? (
-          /* STEP 1: WELCOME & UNIVERSAL WORKSPACE SHOWCASE */
-          <div className="w-full flex flex-col items-center text-center space-y-12 animate-in fade-in duration-300">
-            {/* Minimalist Executive Badge */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-800 text-zinc-300 text-xs font-medium tracking-wide backdrop-blur-xl shadow-xl">
+          /* STEP 1: HERO & 3D INTERACTIVE WORKSPACE SHOWCASE */
+          <div className="w-full flex flex-col items-center text-center space-y-10 animate-in fade-in duration-300">
+            {/* Shimmer Border Capsule Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-950/80 border border-zinc-800 text-zinc-300 text-xs font-medium tracking-wide backdrop-blur-xl shadow-xl">
               <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Autonomous Workspace & Intelligence System</span>
+              <span>Autonomous Cognition & Execution Engine</span>
             </div>
 
-            {/* Floating Kinetic Orb with Physics Animation */}
-            <div className="relative my-2 animate-float-slow">
-              <div className="absolute -inset-6 rounded-full bg-white/[0.04] blur-2xl" />
-              <div className="relative p-3.5 rounded-full bg-[#0a0a0a] border border-zinc-800 shadow-2xl backdrop-blur-2xl">
-                <AiOrb state="idle" size="lg" />
-              </div>
-            </div>
-
-            {/* Hero Positioning */}
-            <div className="max-w-3xl space-y-4">
-              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.12]">
-                Architected for Focus.{" "}
+            {/* Hero Headlines */}
+            <div className="max-w-4xl space-y-5">
+              <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white leading-[1.08]">
+                Architected for Focus. <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-zinc-200 to-zinc-500">
                   Powered by Intelligence.
                 </span>
               </h1>
               <p className="text-sm md:text-base text-zinc-400 max-w-2xl mx-auto font-light leading-relaxed">
-                One unified, high-performance operating environment uniting autonomous intelligence,
+                The unified, high-performance operating environment uniting autonomous intelligence,
                 deep work execution, structured knowledge retention, and literature pipelines.
               </p>
             </div>
 
-            {/* Primary Action Suite */}
+            {/* Primary Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
               <button
                 onClick={() => setActiveStep("signin")}
@@ -257,7 +248,6 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
                 }}
                 className="px-6 py-4 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-200 text-sm font-semibold transition-all flex items-center gap-3 backdrop-blur-md"
               >
-                {/* Official Google Brand Mark */}
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
@@ -280,8 +270,11 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
               </button>
             </div>
 
-            {/* Universal Architecture Pillars (Zero Niche Advertising) */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full pt-8 text-left">
+            {/* INTERACTIVE 3D PERSPECTIVE PRODUCT SHOWCASE */}
+            <Perspective3DShowcase />
+
+            {/* Architecture Pillars Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full pt-6 text-left">
               <div className="p-5 rounded-2xl bg-[#09090b]/80 border border-zinc-800/80 hover:border-zinc-700 transition-all duration-200 group">
                 <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mb-3.5 group-hover:scale-105 transition-transform">
                   <Bot className="w-4 h-4" />
@@ -331,16 +324,16 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
               </div>
             </div>
 
-            {/* Minimalist Trust & Architecture Bar */}
-            <div className="pt-4 flex flex-wrap items-center justify-center gap-6 text-[11px] text-zinc-500 font-medium">
+            {/* Architecture Security Spec Strip */}
+            <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-[11px] text-zinc-500 font-mono">
               <span className="flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-zinc-400" />
-                Isolated User Data & Zero Tracking
+                Tenant-Isolated Datastores
               </span>
               <span>•</span>
               <span className="flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-zinc-400" />
-                High-Performance Real-Time Sync
+                Sub-50ms Gateway Routing
               </span>
               <span>•</span>
               <span className="flex items-center gap-1.5">
@@ -577,14 +570,14 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
         )}
       </main>
 
-      {/* Obsidian Minimal Footer */}
+      {/* Production-Grade Minimalist Footer */}
       <footer className="relative z-20 max-w-7xl mx-auto w-full px-6 py-6 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-500 gap-4">
         <div className="flex items-center gap-2">
-          <span>AMAHAS Autonomous Systems</span>
+          <span>© 2026 AMAHAS Inc.</span>
           <span>•</span>
-          <span className="text-zinc-400">Pure Obsidian Edition</span>
+          <span className="text-zinc-400">Autonomous Execution Architecture</span>
         </div>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-6">
           <Link href="/dashboard" className="hover:text-zinc-300 transition-colors">
             Workspace
           </Link>
