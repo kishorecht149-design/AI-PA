@@ -396,12 +396,45 @@ Live Web Search Engine & Research:
       });
 
       if (pollRes.ok) {
-        const pollText = await pollRes.text();
-        if (pollText && pollText.trim()) {
+        let pollText = (await pollRes.text()).trim();
+
+        // Check if Pollinations returned a JSON tool call
+        if (pollText.startsWith("{") && pollText.includes('"tool_calls"')) {
+          try {
+            const parsed = JSON.parse(pollText);
+            if (Array.isArray(parsed.tool_calls) && parsed.tool_calls.length > 0) {
+              const tc = parsed.tool_calls[0];
+              if (tc.function?.name === "search_web") {
+                const args = JSON.parse(tc.function.arguments || "{}");
+                const cleanQ = args.query || args.keywords || lastUserMsg;
+                const searchRes = await APPLICATION_TOOLS["search_web"].execute(userId, { query: cleanQ });
+                if (searchRes.results && searchRes.results.length > 0) {
+                  const items = searchRes.results
+                    .map(
+                      (r: any, idx: number) =>
+                        `${idx + 1}. **[${r.title}](${r.url})**\n   ${r.snippet || "Click to open/watch tutorial"}`
+                    )
+                    .join("\n\n");
+                  return {
+                    message: {
+                      role: "assistant",
+                      content: `Here are the top video tutorials and live resources found for **"${cleanQ}"**:\n\n${items}\n\n💡 *Tip: Would you like me to bookmark these links into your dashboard Resources section?*`,
+                    },
+                    executedToolResults: [{ toolName: "search_web", result: searchRes }],
+                  };
+                }
+              }
+            } else if (parsed.content) {
+              pollText = parsed.content;
+            }
+          } catch {}
+        }
+
+        if (pollText && !pollText.startsWith('{"role":') && !pollText.includes('"tool_calls"')) {
           return {
             message: {
               role: "assistant",
-              content: pollText.trim(),
+              content: pollText,
             },
           };
         }

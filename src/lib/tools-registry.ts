@@ -655,15 +655,67 @@ function decodeHtmlEntities(str: string): string {
 }
 
 /**
- * Searches the live web using DuckDuckGo Lite with fallback to Wikipedia
+ * Searches YouTube directly for public video links and tutorials
+ */
+async function searchYouTube(query: string, limit = 5): Promise<Array<{ title: string; url: string; snippet: string }>> {
+  try {
+    const cleanQ = query.replace(/^(youtube|video|videos|link|links|find|search for)\s+/gi, "").trim();
+    const res = await fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(cleanQ || query)}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (!res.ok) return [];
+
+    const text = await res.text();
+    const idMatches = [...text.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)];
+    const titleMatches = [...text.matchAll(/"title":\{"runs":\[\{"text":"([^"]+)"\}\]/g)];
+
+    const results: Array<{ title: string; url: string; snippet: string }> = [];
+    const seen = new Set<string>();
+
+    for (let i = 0; i < Math.min(titleMatches.length, idMatches.length); i++) {
+      const vidId = idMatches[i] ? idMatches[i][1] : "";
+      const rawTitle = titleMatches[i] ? titleMatches[i][1] : "";
+      if (vidId && rawTitle && !seen.has(vidId)) {
+        seen.add(vidId);
+        results.push({
+          title: decodeHtmlEntities(rawTitle),
+          url: `https://www.youtube.com/watch?v=${vidId}`,
+          snippet: `YouTube Video Lecture / Tutorial: ${decodeHtmlEntities(rawTitle)}`,
+        });
+        if (results.length >= limit) break;
+      }
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Searches the live web using YouTube, DuckDuckGo Lite, and Wikipedia
  */
 async function performWebSearch(query: string, limit = 5): Promise<any> {
   const cleanQuery = query.trim();
-  const results: Array<{ title: string; url: string; snippet: string }> = [];
+  const lowerQ = cleanQuery.toLowerCase();
+  let results: Array<{ title: string; url: string; snippet: string }> = [];
 
-  // 1. DuckDuckGo Lite search
-  try {
-    const res = await fetch("https://lite.duckduckgo.com/lite/", {
+  // 1. If user asks for YouTube or video tutorials, query YouTube directly
+  if (lowerQ.includes("youtube") || lowerQ.includes("video") || lowerQ.includes("lecture") || lowerQ.includes("tutorial")) {
+    const ytResults = await searchYouTube(cleanQuery, limit);
+    if (ytResults.length > 0) {
+      results = ytResults;
+    }
+  }
+
+  // 2. DuckDuckGo Lite search if not enough results
+  if (results.length < limit) {
+    try {
+      const res = await fetch("https://lite.duckduckgo.com/lite/", {
       method: "POST",
       headers: {
         "User-Agent":
@@ -706,8 +758,9 @@ async function performWebSearch(query: string, limit = 5): Promise<any> {
       }
     }
   } catch {}
+  }
 
-  // 2. Fallback to Wikipedia search API if empty
+  // 3. Fallback to Wikipedia search API if empty
   if (results.length === 0) {
     try {
       const wikiRes = await fetch(
