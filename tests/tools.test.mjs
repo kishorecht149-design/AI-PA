@@ -27,4 +27,7 @@ test("Tools Registry: mutating tools are properly flagged as requiring user conf
   assert.equal(APPLICATION_TOOLS["get_course_progress"].isReadOnly, true);
   assert.equal(APPLICATION_TOOLS["search_notes"].isReadOnly, true);
   assert.equal(APPLICATION_TOOLS["search_research_papers"].isReadOnly, true);
+  assert.equal(APPLICATION_TOOLS["search_web"].isReadOnly, true);
+  assert.equal(APPLICATION_TOOLS["fetch_webpage_content"].isReadOnly, true);
 });
+

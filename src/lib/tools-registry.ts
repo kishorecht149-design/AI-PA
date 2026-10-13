@@ -605,4 +605,177 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
       };
     },
   },
+
+  search_web: {
+    name: "search_web",
+    description: "Search across websites and the live internet for real-time information, documentation, news, academic topics, tutorials, and facts.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query or keywords to search the internet for" },
+        limit: { type: "number", description: "Maximum number of search results (default 5)" },
+      },
+      required: ["query"],
+    },
+    execute: async (_userId, args) => {
+      return await performWebSearch(args.query, Number(args.limit) || 5);
+    },
+  },
+
+  fetch_webpage_content: {
+    name: "fetch_webpage_content",
+    description: "Fetch and read the readable text content of a specific webpage or website URL.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "The full http/https URL of the webpage to fetch and read" },
+      },
+      required: ["url"],
+    },
+    execute: async (_userId, args) => {
+      return await fetchWebpage(args.url);
+    },
+  },
 };
+
+/**
+ * HTML entity decoder helper
+ */
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+/**
+ * Searches the live web using DuckDuckGo Lite with fallback to Wikipedia
+ */
+async function performWebSearch(query: string, limit = 5): Promise<any> {
+  const cleanQuery = query.trim();
+  const results: Array<{ title: string; url: string; snippet: string }> = [];
+
+  // 1. DuckDuckGo Lite search
+  try {
+    const res = await fetch("https://lite.duckduckgo.com/lite/", {
+      method: "POST",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `q=${encodeURIComponent(cleanQuery)}`,
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (res.ok) {
+      const html = await res.text();
+      const linkMatches = [
+        ...html.matchAll(
+          /<a[^>]*href=["']([^"']+)["'][^>]*class=["']result-link["'][^>]*>(.*?)<\/a>/gis
+        ),
+      ];
+      const snippetMatches = [
+        ...html.matchAll(/<td[^>]*class=["']result-snippet["'][^>]*>(.*?)<\/td>/gis),
+      ];
+
+      for (let i = 0; i < Math.min(limit, linkMatches.length); i++) {
+        const rawUrl = linkMatches[i][1];
+        let url = rawUrl;
+        if (rawUrl.includes("uddg=")) {
+          const m = rawUrl.match(/uddg=([^&]+)/);
+          if (m) url = decodeURIComponent(m[1]);
+        } else if (rawUrl.startsWith("//")) {
+          url = "https:" + rawUrl;
+        }
+
+        const title = decodeHtmlEntities(linkMatches[i][2].replace(/<[^>]+>/g, "").trim());
+        const snippet = snippetMatches[i]
+          ? decodeHtmlEntities(snippetMatches[i][1].replace(/<[^>]+>/g, "").trim())
+          : "";
+
+        if (title && url) {
+          results.push({ title, url, snippet });
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Fallback to Wikipedia search API if empty
+  if (results.length === 0) {
+    try {
+      const wikiRes = await fetch(
+        `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
+          cleanQuery
+        )}&format=json&origin=*`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      if (wikiRes.ok) {
+        const data = await wikiRes.json();
+        const searchList = data.query?.search || [];
+        for (const item of searchList.slice(0, limit)) {
+          results.push({
+            title: item.title,
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, "_"))}`,
+            snippet: decodeHtmlEntities(item.snippet.replace(/<[^>]+>/g, "")),
+          });
+        }
+      }
+    } catch {}
+  }
+
+  return {
+    query: cleanQuery,
+    count: results.length,
+    results,
+    searchedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Fetches and extracts readable text from a specific webpage
+ */
+async function fetchWebpage(targetUrl: string): Promise<any> {
+  try {
+    const res = await fetch(targetUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!res.ok) {
+      return { error: `Failed to fetch webpage (HTTP ${res.status})`, url: targetUrl };
+    }
+
+    const html = await res.text();
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+    const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : "Webpage";
+
+    // Clean text: strip scripts, styles, tags, excessive whitespace
+    const cleanText = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
+      .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, " ")
+      .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return {
+      title,
+      url: targetUrl,
+      contentSnippet: cleanText.slice(0, 3000),
+      totalLength: cleanText.length,
+    };
+  } catch (err: any) {
+    return { error: err.message || "Failed to fetch webpage", url: targetUrl };
+  }
+}
