@@ -27,10 +27,12 @@ import {
   ChevronRight,
   Palette,
   Check,
+  Bell,
 } from "lucide-react";
 import { AmahasLogo } from "@/components/brand/AmahasLogo";
 import { useTheme } from "@/lib/themes/theme-provider";
 import { ThemeId } from "@/lib/themes/types";
+import { NotificationBell } from "./notifications/NotificationBell";
 
 interface NavItem {
   name: string;
@@ -52,6 +54,7 @@ const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
       { name: "Planner", href: "/planner", icon: Calendar },
       { name: "Tasks", href: "/tasks", icon: CheckSquare },
       { name: "Projects", href: "/projects", icon: FolderKanban },
+      { name: "Reminders & Alarms", href: "/reminders", icon: Bell },
     ],
   },
   {
@@ -296,6 +299,7 @@ export function Navigation({
           <AmahasLogo variant="compact" size="sm" />
         </Link>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <button
             onClick={() => setQuickThemeOpen(!quickThemeOpen)}
             className="p-2 text-[var(--text-muted)] hover:text-[var(--accent-primary)] rounded-lg hover:bg-[var(--border)]"
