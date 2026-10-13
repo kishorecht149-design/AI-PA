@@ -48,6 +48,7 @@ model User {
   automations   Automation[]
   notifications Notification[]
   auditEvents   AuditEvent[]
+  customSections CustomDashboardSection[]
 
   @@index([email])
 }
@@ -846,4 +847,20 @@ model AuditEvent {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model CustomDashboardSection {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  category    String   @default("resources")
+  icon        String   @default("Folder")
+  order       Int      @default(0)
+  itemsJson   String   @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
 }

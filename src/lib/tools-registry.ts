@@ -498,4 +498,111 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
       return { success: true, message: `Workflow "${auto.name}" executed.`, executionId: execution.id };
     },
   },
+
+  get_dashboard_sections: {
+    name: "get_dashboard_sections",
+    description: "Retrieve all customized sections, folders, and resources currently on the student's dashboard.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+    execute: async (userId) => {
+      const sections = await prisma.customDashboardSection.findMany({
+        where: { userId },
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+      });
+      return sections.map((s) => ({
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        folders: JSON.parse(s.itemsJson || "[]"),
+      }));
+    },
+  },
+
+  customize_dashboard_section: {
+    name: "customize_dashboard_section",
+    description: "Create, update, or add folders and links to a section on the student's dashboard (e.g. creating a 'Resources' section with folders for 'Video Links', 'Online Materials', 'Books', 'Information').",
+    isReadOnly: false,
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Title of the dashboard section (e.g. 'Resources', 'Study Hub', 'Quick Links')" },
+        description: { type: "string", description: "Helpful subtitle or description for this section" },
+        folders: { type: "string", description: "Comma-separated list of folder names to create inside this section (e.g. 'Video Links, Online Materials, Books, Information')" },
+        action: { type: "string", description: "Action to perform", enum: ["CREATE", "UPDATE", "DELETE"] },
+      },
+      required: ["title"],
+    },
+    execute: async (userId, args) => {
+      const title = args.title?.trim();
+      const action = args.action || "CREATE";
+
+      if (action === "DELETE") {
+        await prisma.customDashboardSection.deleteMany({
+          where: { userId, title },
+        });
+        return { success: true, message: `Section "${title}" removed from dashboard.` };
+      }
+
+      // Parse folder names
+      let initialFolders: any[] = [];
+      if (args.folders) {
+        const folderNames = args.folders.split(",").map((f: string) => f.trim()).filter(Boolean);
+        initialFolders = folderNames.map((f: string, idx: number) => ({
+          id: `folder_${Date.now()}_${idx}`,
+          title: f,
+          type: "folder",
+          description: `Curated ${f}`,
+          links: [],
+        }));
+      } else {
+        initialFolders = [
+          { id: `folder_${Date.now()}_0`, title: "General", type: "folder", description: "General materials", links: [] },
+        ];
+      }
+
+      const existing = await prisma.customDashboardSection.findFirst({
+        where: { userId, title },
+      });
+
+      let section;
+      if (existing) {
+        // Merge or update folders
+        const existingFolders = JSON.parse(existing.itemsJson || "[]");
+        const existingTitles = new Set(existingFolders.map((ef: any) => ef.title.toLowerCase()));
+        for (const nf of initialFolders) {
+          if (!existingTitles.has(nf.title.toLowerCase())) {
+            existingFolders.push(nf);
+          }
+        }
+        section = await prisma.customDashboardSection.update({
+          where: { id: existing.id },
+          data: {
+            itemsJson: JSON.stringify(existingFolders),
+            ...(args.description && { description: args.description.trim() }),
+          },
+        });
+      } else {
+        section = await prisma.customDashboardSection.create({
+          data: {
+            userId,
+            title,
+            description: args.description?.trim() || "Custom student resources and curated study folders",
+            category: "resources",
+            icon: "Folder",
+            itemsJson: JSON.stringify(initialFolders),
+          },
+        });
+      }
+
+      return {
+        success: true,
+        message: `Section "${section.title}" created with folders: ${initialFolders.map((f: any) => f.title).join(", ")}. It is now live on your dashboard!`,
+        sectionId: section.id,
+      };
+    },
+  },
 };
