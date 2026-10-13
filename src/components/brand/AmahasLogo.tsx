@@ -28,10 +28,15 @@ export function AmahasLogo({
       xl: "w-16 h-16",
     }[size];
 
+    const pxSize = size === "sm" ? 28 : size === "lg" ? 48 : size === "xl" ? 64 : 36;
+
     return (
       <img
         src="/brand/amahas-symbol.png"
         alt="AMAHAS Symbol"
+        width={pxSize}
+        height={pxSize}
+        style={{ width: pxSize, height: pxSize, maxWidth: pxSize, maxHeight: pxSize }}
         className={`${symbolSizes} object-contain flex-shrink-0 drop-shadow-md select-none ${className}`}
       />
     );
@@ -44,6 +49,9 @@ export function AmahasLogo({
         <img
           src="/brand/amahas-symbol.png"
           alt="AMAHAS"
+          width={36}
+          height={36}
+          style={{ width: 36, height: 36, maxWidth: 36, maxHeight: 36 }}
           className="w-9 h-9 object-contain flex-shrink-0 drop-shadow-md"
         />
         <div className="flex flex-col leading-none justify-center">
@@ -73,6 +81,9 @@ export function AmahasLogo({
         <img
           src="/brand/amahas-symbol.png"
           alt="AMAHAS"
+          width={28}
+          height={28}
+          style={{ width: 28, height: 28, maxWidth: 28, maxHeight: 28 }}
           className="w-7 h-7 object-contain flex-shrink-0 drop-shadow-sm"
         />
         <span
@@ -93,11 +104,14 @@ export function AmahasLogo({
     xl: "h-28",
   }[size];
 
+  const maxH = size === "sm" ? 40 : size === "lg" ? 80 : size === "xl" ? 112 : 56;
+
   return (
     <div className={`flex flex-col items-center select-none ${className}`}>
       <img
         src="/brand/amahas-logo.png"
         alt="AMAHAS — Intelligent Personal Operating System for Students"
+        style={{ maxHeight: maxH, height: maxH, width: "auto" }}
         className={`${primarySizes} w-auto object-contain drop-shadow-xl`}
       />
     </div>
