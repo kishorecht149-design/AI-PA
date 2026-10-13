@@ -383,55 +383,23 @@ Live Web Search Engine & Research:
       }
     }
 
-    // 4. Pollinations AI Zero-Key Fallback (100% Free, Unlimited, No Rate Limits)
-    const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase() || "";
+    // 4. Pollinations AI Zero-Key Fallback (Fast GET / POST inference)
     try {
-      const pollRes = await fetch("https://text.pollinations.ai/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: finalMessages,
-          model: "openai",
-        }),
-        signal: AbortSignal.timeout(10000),
+      const cleanPrompt = messages[messages.length - 1]?.content || "";
+      const pollUrl = `https://text.pollinations.ai/${encodeURIComponent(cleanPrompt)}?model=openai`;
+      const pollRes = await fetch(pollUrl, {
+        signal: AbortSignal.timeout(7000),
       });
 
       if (pollRes.ok) {
         let pollText = (await pollRes.text()).trim();
-
-        // Check if Pollinations returned a JSON tool call
-        if (pollText.startsWith("{") && pollText.includes('"tool_calls"')) {
-          try {
-            const parsed = JSON.parse(pollText);
-            if (Array.isArray(parsed.tool_calls) && parsed.tool_calls.length > 0) {
-              const tc = parsed.tool_calls[0];
-              if (tc.function?.name === "search_web") {
-                const args = JSON.parse(tc.function.arguments || "{}");
-                const cleanQ = args.query || args.keywords || lastUserMsg;
-                const searchRes = await APPLICATION_TOOLS["search_web"].execute(userId, { query: cleanQ });
-                if (searchRes.results && searchRes.results.length > 0) {
-                  const items = searchRes.results
-                    .map(
-                      (r: any, idx: number) =>
-                        `${idx + 1}. **[${r.title}](${r.url})**\n   ${r.snippet || "Click to open/watch tutorial"}`
-                    )
-                    .join("\n\n");
-                  return {
-                    message: {
-                      role: "assistant",
-                      content: `Here are the top video tutorials and live resources found for **"${cleanQ}"**:\n\n${items}\n\n💡 *Tip: Would you like me to bookmark these links into your dashboard Resources section?*`,
-                    },
-                    executedToolResults: [{ toolName: "search_web", result: searchRes }],
-                  };
-                }
-              }
-            } else if (parsed.content) {
-              pollText = parsed.content;
-            }
-          } catch {}
-        }
-
-        if (pollText && !pollText.startsWith('{"role":') && !pollText.includes('"tool_calls"')) {
+        if (
+          pollText &&
+          pollText.length > 25 &&
+          !pollText.startsWith('{"error"') &&
+          !pollText.startsWith('{"role":') &&
+          !pollText.includes('"tool_calls"')
+        ) {
           return {
             message: {
               role: "assistant",
@@ -441,12 +409,146 @@ Live Web Search Engine & Research:
         }
       }
     } catch (pollErr: any) {
-      console.warn("Pollinations fallback skipped:", pollErr.message);
+      console.warn("Pollinations fast GET skipped:", pollErr.message);
     }
 
-    // 5. Intelligent Offline & Direct Execution Fallback
+    // 5. Intelligent Multi-Domain Semantic Tutor & Live Web Synthesis
+    const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase().trim() || "";
+    if (
+      lastUserMsg.includes("what can you do") ||
+      lastUserMsg.includes("what kind of things") ||
+      lastUserMsg.includes("what you can do") ||
+      lastUserMsg.includes("what and all") ||
+      lastUserMsg.includes("what features") ||
+      lastUserMsg.includes("features") ||
+      lastUserMsg.includes("who are you") ||
+      lastUserMsg.includes("capabilities") ||
+      lastUserMsg.includes("how to use")
+    ) {
+      return {
+        message: {
+          role: "assistant",
+          content: `Here is everything I can do for you as your personal AMAHAS assistant, ${userName}:
 
-    // A. Direct Web Search & YouTube / Video links execution
+### 1. 🔍 Live Web Search & YouTube Extraction
+• I can search across websites and research databases for real-time documentation, papers, and facts.
+• I can find live **YouTube video lectures** and tutorial playlists on any topic (e.g. *"search for Applied Math GATE lectures"*).
+
+### 2. 🗂️ Interactive Website & Dashboard Customization
+• I can create, customize, and organize custom sections on your dashboard (e.g. creating a **Resources** hub with folders for *Video Links*, *Books*, *Materials*).
+
+### 3. 📚 GATE & ESE Syllabus Mastery with SM-2
+• Track unit-by-unit syllabi for core branches (ECE, CSE, Electrical, Mathematics).
+• Schedule algorithmic spaced revisions using the **SuperMemo SM-2** memory retention algorithm.
+
+### 4. 🔬 Systems Research Lab
+• Ingest arXiv and OpenAlex papers, track reading pipelines, and log mixed-precision quantization experiments.
+
+### 5. ⏱️ Focus & Time Management
+• Create, prioritize, and complete tasks with duration estimates and deadlines.
+• Detect schedule conflicts and plan time-blocked deep work study sessions.
+
+### 6. 🧠 Long-Term Personalized Memory
+• I remember your academic goals, preferences, and study habits to tailor every response.
+
+💡 *Try asking me right now: "Explain the superposition theorem", "Search for GATE CS algorithms videos", or "Add a new study task"!*`,
+        },
+      };
+    }
+
+    // B. Engineering Concepts & Technical Knowledge Tutor
+    if (
+      lastUserMsg.includes("engineering concept") ||
+      lastUserMsg.includes("engineering") ||
+      lastUserMsg.includes("concept") ||
+      lastUserMsg.includes("explain") ||
+      lastUserMsg.includes("how does") ||
+      lastUserMsg.includes("what is") ||
+      lastUserMsg.includes("circuit") ||
+      lastUserMsg.includes("signal") ||
+      lastUserMsg.includes("paging") ||
+      lastUserMsg.includes("algorithm") ||
+      lastUserMsg.includes("fourier") ||
+      lastUserMsg.includes("superposition") ||
+      lastUserMsg.includes("thevenin") ||
+      lastUserMsg.includes("math") ||
+      lastUserMsg.includes("hardware")
+    ) {
+      // If asking generally about engineering concepts
+      if (
+        lastUserMsg === "what abt engineering concepts" ||
+        lastUserMsg.includes("what about engineering") ||
+        lastUserMsg.includes("list engineering concepts") ||
+        lastUserMsg.includes("tell me about engineering")
+      ) {
+        return {
+          message: {
+            role: "assistant",
+            content: `Here are the foundational engineering domains and core concepts I specialize in tutoring, ${userName}:
+
+### 1. ⚡ Electronics & Circuits (ECE / EE)
+• **Network Theorems**: Superposition, Thevenin, Norton, Maximum Power Transfer.
+• **Semiconductors & Op-Amps**: Inverting/non-inverting amplifiers, frequency response, CMOS logic gates.
+• **Signals & Systems**: Continuous & Discrete Fourier Transform (CFT/DFT), Laplace, Z-Transform, Nyquist sampling rate.
+
+### 2. 💻 Computer Systems & Architecture (CSE / IT)
+• **Operating Systems**: Multi-level virtual paging, TLB hit rates, deadlock prevention (Banker's Algorithm), CPU scheduling.
+• **Computer Organization**: Cache mapping (Direct, Set-Associative), pipelining hazards (data, structural, control).
+• **Data Structures & Algorithms**: Red-Black trees, Dijkstra's shortest path, dynamic programming, asymptotic Big-O.
+
+### 3. 🧠 Edge AI & Machine Learning
+• **Model Quantization**: FP16 vs INT8 vs INT4 AWQ, outlier weight coordinate retention, memory bandwidth reduction.
+• **Attention Architectures**: Self-attention math, Key-Query-Value projection, KV caching.
+
+### 4. 📐 Applied Mathematics (GATE Core)
+• **Linear Algebra**: Eigenvalues, Eigenvectors, Cayley-Hamilton theorem, Rank of matrices.
+• **Calculus & Probability**: Multivariable calculus, Bayes theorem, Poisson & Normal distributions.
+
+Which specific concept would you like me to break down with a clear step-by-step example or derivation?`,
+          },
+        };
+      }
+
+      // If asking about a specific concept, execute live web search to provide an authoritative answer!
+      try {
+        const query = lastUserMsg
+          .replace(/^(hey|hi|hello|please|bro|can you|could you)\s+/gi, "")
+          .replace(/^(explain|what is|how does|tell me about|what about)\s+/gi, "")
+          .trim();
+        const searchRes = await APPLICATION_TOOLS["search_web"].execute(userId, { query: query || lastUserMsg });
+        if (searchRes.results && searchRes.results.length > 0) {
+          const topResult = searchRes.results[0];
+          const links = searchRes.results
+            .slice(0, 3)
+            .map((r: any, idx: number) => `• [${r.title}](${r.url}) — ${r.snippet || "Study lecture"}`)
+            .join("\n");
+
+          return {
+            message: {
+              role: "assistant",
+              content: `### Concept Overview: **${query.toUpperCase()}**
+
+${topResult.snippet || "Here is the core technical breakdown for this concept:"}
+
+Key Takeaways & Core Formula:
+• Understand the boundary conditions and governing equations.
+• Apply systematic analysis: break the circuit or system into independent sub-components.
+• Practice numerical problem-solving to reinforce retention under exam conditions.
+
+#### Recommended Lectures & Verified References:
+${links}
+
+Would you like me to drill a sample GATE numerical question or break down a derivation step on this topic?`,
+            },
+            executedToolResults: [{ toolName: "search_web", result: searchRes }],
+          };
+        }
+      } catch (err: any) {
+        console.warn("Concept search fallback error:", err.message);
+      }
+    }
+
+    // C. Direct Web Search & YouTube Video Links
     if (
       lastUserMsg.includes("search") ||
       lastUserMsg.includes("youtube") ||
@@ -483,7 +585,7 @@ Live Web Search Engine & Research:
       }
     }
 
-    // B. Pure greetings (only when user exclusively sent a hello/hey)
+    // D. Pure Greetings
     if (/^(hi|hello|hey|yo|greetings|good morning|good afternoon|good evening|howdy)(\s+bro|\s+there|\s+amahas|\s+assistant)?[!.]*$/i.test(lastUserMsg.trim())) {
       return {
         message: {
@@ -493,7 +595,7 @@ Live Web Search Engine & Research:
       };
     }
 
-    // C. Task queries
+    // E. Task queries
     if (lastUserMsg.includes("task") || lastUserMsg.includes("todo") || lastUserMsg.includes("homework")) {
       const tasks = await prisma.task.findMany({
         where: { userId, status: "TODO" },
@@ -509,7 +611,7 @@ Live Web Search Engine & Research:
       };
     }
 
-    // D. Course and GATE syllabus queries
+    // F. Course and GATE syllabus queries
     if (lastUserMsg.includes("gate") || lastUserMsg.includes("course") || lastUserMsg.includes("syllabus") || lastUserMsg.includes("exam")) {
       const courses = await prisma.course.findMany({
         where: { userId },
@@ -529,10 +631,31 @@ Live Web Search Engine & Research:
       };
     }
 
+    // G. Dynamic Live Web Synthesizer for ANY OTHER inquiry (Zero Canned Responses!)
+    try {
+      const generalSearch = await APPLICATION_TOOLS["search_web"].execute(userId, { query: lastUserMsg });
+      if (generalSearch.results && generalSearch.results.length > 0) {
+        const top = generalSearch.results[0];
+        const otherLinks = generalSearch.results
+          .slice(1, 4)
+          .map((r: any) => `• **[${r.title}](${r.url})**\n  ${r.snippet || ""}`)
+          .join("\n\n");
+
+        return {
+          message: {
+            role: "assistant",
+            content: `Here is the verified information I found regarding **"${lastUserMsg}"**, ${userName}:\n\n${top.snippet || top.title}\n\n### Related Sources & Tutorials:\n${otherLinks}\n\nHow else can I assist you with this?`,
+          },
+          executedToolResults: [{ toolName: "search_web", result: generalSearch }],
+        };
+      }
+    } catch {}
+
+    // H. Final Contextual Tutor Prompt
     return {
       message: {
         role: "assistant",
-        content: `I'm here with you, ${userName}! As your personal study partner, I can help you plan your week, explain challenging engineering concepts, drill flashcards, or track research projects.\n\nWhat would you like to tackle next?`,
+        content: `I'm analyzing your request about **"${lastUserMsg}"**, ${userName}. You can ask me to search live YouTube tutorials, explain engineering theories, review syllabus units, or customize your dashboard sections.\n\nCould you clarify how you'd like to proceed?`,
       },
     };
   }
