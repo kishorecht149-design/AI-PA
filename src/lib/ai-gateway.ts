@@ -384,6 +384,7 @@ Live Web Search Engine & Research:
     }
 
     // 4. Pollinations AI Zero-Key Fallback (100% Free, Unlimited, No Rate Limits)
+    const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase() || "";
     try {
       const pollRes = await fetch("https://text.pollinations.ai/", {
         method: "POST",
@@ -444,7 +445,6 @@ Live Web Search Engine & Research:
     }
 
     // 5. Intelligent Offline & Direct Execution Fallback
-    const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase() || "";
 
     // A. Direct Web Search & YouTube / Video links execution
     if (

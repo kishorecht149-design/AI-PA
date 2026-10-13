@@ -28,6 +28,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { KNOWN_FREE_MODELS } from "@/lib/ai-gateway";
+import { AiOrb, AiOrbState } from "@/components/AiOrb";
 
 interface MessageItem {
   id?: string;
@@ -252,18 +253,35 @@ export default function AssistantPage() {
     setMemories((prev) => prev.filter((m) => m.id !== id));
   };
 
+  const currentOrbState: AiOrbState = isRecording
+    ? "listening"
+    : loading
+    ? "thinking"
+    : ttsEnabled
+    ? "speaking"
+    : "idle";
+
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2.5">
-            <Bot className="w-6 h-6 text-violet-400" />
-            Personal AI Assistant
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Permission-bounded coordinator over tasks, syllabi, research, and memory.
-          </p>
+        <div className="flex items-center gap-3.5">
+          <AiOrb
+            state={currentOrbState}
+            size="md"
+            showStatusLabel={true}
+            onClick={() => {
+              if (!isRecording) toggleVoiceRecording();
+            }}
+          />
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              Personal AI Assistant
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Permission-bounded coordinator over live search, tasks, syllabus, and memory.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -283,14 +301,14 @@ export default function AssistantPage() {
           {/* TTS Toggle */}
           <button
             onClick={() => setTtsEnabled(!ttsEnabled)}
-            className={`p-2 rounded-xl border text-xs transition-colors ${
+            className={`p-2 rounded-xl border text-xs transition-all ${
               ttsEnabled
-                ? "bg-violet-600/20 border-violet-500/40 text-violet-300"
+                ? "bg-violet-600/20 border-violet-500/40 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.25)]"
                 : "bg-white/5 border-white/5 text-slate-400 hover:text-white"
             }`}
             title={ttsEnabled ? "Voice Output Active" : "Voice Output Muted"}
           >
-            {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            {ttsEnabled ? <Volume2 className="w-4 h-4 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
           </button>
 
           {/* Memory Inspector Drawer Trigger */}
@@ -305,26 +323,26 @@ export default function AssistantPage() {
       </div>
 
       {/* Main Conversation Stream */}
-      <div className="bg-[#0b1120] rounded-2xl border border-white/5 p-4 md:p-6 h-[540px] flex flex-col justify-between overflow-hidden">
+      <div className="bg-[#0b1120] rounded-2xl border border-white/5 p-4 md:p-6 h-[540px] flex flex-col justify-between overflow-hidden relative shadow-2xl">
         <div className="flex-1 overflow-y-auto space-y-4 pr-2">
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`flex gap-3 ${
+              className={`flex gap-3 animate-message-in ${
                 msg.role === "user" ? "justify-end" : "justify-start"
               }`}
             >
               {msg.role === "assistant" && (
-                <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300 shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4" />
+                <div className="shrink-0 mt-0.5">
+                  <AiOrb state={loading && i === messages.length - 1 ? "thinking" : "idle"} size="sm" />
                 </div>
               )}
 
               <div
-                className={`max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed ${
+                className={`max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed transition-all duration-200 ${
                   msg.role === "user"
-                    ? "bg-cyan-500 text-black font-medium shadow-md shadow-cyan-500/10"
-                    : "bg-white/[0.04] border border-white/5 text-slate-200"
+                    ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-black font-medium shadow-md shadow-cyan-500/10"
+                    : "bg-white/[0.04] hover:bg-white/[0.06] border border-white/10 text-slate-200 shadow-sm"
                 }`}
               >
                 <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -334,9 +352,9 @@ export default function AssistantPage() {
 
           {/* Prominent Permission Review Card for mutating actions */}
           {pendingTool && (
-            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-3 animate-in fade-in">
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-3 animate-message-in">
               <div className="flex items-center gap-2 font-bold text-amber-400">
-                <Lock className="w-4 h-4" /> Permission Review: Action Requires Approval
+                <Lock className="w-4 h-4 animate-bounce" /> Permission Review: Action Requires Approval
               </div>
               <p className="text-slate-300 leading-relaxed">
                 The assistant proposes to execute tool <strong>{pendingTool.toolName}</strong> with arguments:
@@ -347,13 +365,13 @@ export default function AssistantPage() {
               <div className="flex items-center justify-end gap-2 pt-1">
                 <button
                   onClick={() => handleConfirmTool(false)}
-                  className="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 text-xs font-medium"
+                  className="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 text-xs font-medium transition-colors"
                 >
                   Reject Action
                 </button>
                 <button
                   onClick={() => handleConfirmTool(true)}
-                  className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs transition-colors"
+                  className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs transition-colors shadow-md shadow-cyan-500/20"
                 >
                   <Check className="w-3.5 h-3.5" /> Approve &amp; Execute
                 </button>
@@ -361,9 +379,27 @@ export default function AssistantPage() {
             </div>
           )}
 
+          {/* Holographic Quantum Synthesizing Indicator Card */}
           {loading && (
-            <div className="flex items-center gap-2 text-xs text-violet-400 animate-pulse">
-              <Sparkles className="w-4 h-4" /> Synthesizing response...
+            <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-[#070b14]/90 border border-violet-500/30 max-w-lg animate-message-in relative overflow-hidden shadow-xl backdrop-blur-md">
+              {/* Animated scanning light beam */}
+              <div className="absolute inset-0 w-2/3 bg-gradient-to-r from-transparent via-violet-500/15 to-transparent animate-scan-beam pointer-events-none" />
+
+              <AiOrb state="thinking" size="sm" />
+
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold text-violet-300">
+                  <span>AMAHAS is synthesizing</span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-typing-1" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-typing-2" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-typing-3" />
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 truncate">
+                  Scanning live web &amp; YouTube tutorials, syllabus records, and memory...
+                </p>
+              </div>
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -581,14 +617,17 @@ export default function AssistantPage() {
           <button
             type="button"
             onClick={toggleVoiceRecording}
-            className={`p-3 rounded-xl border text-xs transition-all ${
+            className={`relative p-3 rounded-xl border text-xs transition-all flex items-center justify-center ${
               isRecording
-                ? "bg-red-500/20 border-red-500/40 text-red-400 animate-pulse"
-                : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                ? "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                : "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10"
             }`}
             title="Speech-to-Text Voice Input"
           >
-            {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            {isRecording && (
+              <span className="absolute inset-0 rounded-xl bg-red-500/30 animate-ping pointer-events-none" />
+            )}
+            {isRecording ? <MicOff className="w-4 h-4 relative z-10" /> : <Mic className="w-4 h-4 relative z-10" />}
           </button>
 
           <input
@@ -596,13 +635,13 @@ export default function AssistantPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask assistant to search web, schedule tasks, drill GATE syllabus concepts, or create dashboard sections..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-violet-400 transition-colors"
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400/30 transition-all"
           />
 
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-violet-600/20 disabled:opacity-50 flex items-center gap-1.5"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-violet-600/20 disabled:opacity-40 flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
           >
             <Send className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Send</span>
