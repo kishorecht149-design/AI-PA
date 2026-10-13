@@ -277,39 +277,96 @@ Capabilities:
 
             // Handle tool calls if any
             if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
-              const toolCall = assistantMsg.tool_calls[0];
-              const toolName = toolCall.function?.name;
-              const toolDef = APPLICATION_TOOLS[toolName];
+              const toolCalls = assistantMsg.tool_calls;
+              const hasMutatingTool = toolCalls.some((tc: any) => {
+                const def = APPLICATION_TOOLS[tc.function?.name];
+                return def && !def.isReadOnly;
+              });
 
-              if (toolDef) {
-                let args = {};
-                try {
-                  args = JSON.parse(toolCall.function.arguments || "{}");
-                } catch {
-                  args = {};
-                }
+              if (hasMutatingTool) {
+                // Mutating action: Prepare confirmation card with friendly explanation
+                const firstCall = toolCalls[0];
+                const toolName = firstCall.function?.name;
+                const readable = `I've prepared the ${toolName?.replace(/_/g, " ")} action for you. Please review and confirm below:`;
+                assistantMsg.content = assistantMsg.content?.trim() || readable;
+                return {
+                  message: assistantMsg,
+                  toolCalls: assistantMsg.tool_calls,
+                  requiresConfirmation: true,
+                };
+              }
 
-                // If tool is read-only, execute automatically
-                if (toolDef.isReadOnly) {
+              // All tool calls are read-only: execute and feed results back to the model!
+              const toolResultMessages: ChatMessage[] = [];
+              const executedResults: any[] = [];
+
+              for (const tc of toolCalls) {
+                const toolName = tc.function?.name;
+                const toolDef = APPLICATION_TOOLS[toolName];
+                if (toolDef) {
+                  let args = {};
+                  try {
+                    args = JSON.parse(tc.function?.arguments || "{}");
+                  } catch {
+                    args = {};
+                  }
                   const execResult = await toolDef.execute(userId, args);
-                  return {
-                    message: assistantMsg,
-                    toolCalls: assistantMsg.tool_calls,
-                    requiresConfirmation: false,
-                    executedToolResults: [{ toolName, result: execResult }],
-                  };
-                } else {
-                  // Tool mutates state: requires user confirmation
-                  return {
-                    message: assistantMsg,
-                    toolCalls: assistantMsg.tool_calls,
-                    requiresConfirmation: true,
-                  };
+                  executedResults.push({ toolName, result: execResult });
+                  toolResultMessages.push({
+                    role: "tool",
+                    name: toolName,
+                    tool_call_id: tc.id,
+                    content: typeof execResult === "string" ? execResult : JSON.stringify(execResult),
+                  });
                 }
+              }
+
+              // Send tool outputs back to OpenRouter to get the real conversational response!
+              try {
+                const followUpResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${this.openRouterKey}`,
+                    "HTTP-Referer": "https://amahas.internal",
+                    "X-Title": "AMAHAS Personal Operating System",
+                  },
+                  body: JSON.stringify({
+                    model: currentModel,
+                    messages: [...finalMessages, assistantMsg, ...toolResultMessages],
+                    tools: this.getToolSchemas(),
+                    tool_choice: "none",
+                    temperature,
+                  }),
+                });
+
+                if (followUpResponse.ok) {
+                  const followUpResult = await followUpResponse.json();
+                  const finalMsg = followUpResult.choices?.[0]?.message;
+                  if (finalMsg) {
+                    const cleanContent = (finalMsg.content || "")
+                      .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
+                      .trim();
+
+                    if (cleanContent) {
+                      finalMsg.content = cleanContent;
+                      return {
+                        message: finalMsg,
+                        toolCalls: assistantMsg.tool_calls,
+                        requiresConfirmation: false,
+                        executedToolResults: executedResults,
+                      };
+                    }
+                  }
+                }
+              } catch (followUpErr: any) {
+                console.warn("Follow-up completion with tool results failed:", followUpErr.message);
               }
             }
 
-            return { message: assistantMsg };
+            if (assistantMsg.content?.trim()) {
+              return { message: assistantMsg };
+            }
           }
         } catch (err: any) {
           console.warn(`Error attempting model '${currentModel}':`, err.message);

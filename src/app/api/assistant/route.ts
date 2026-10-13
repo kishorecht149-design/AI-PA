@@ -141,7 +141,7 @@ export async function POST(req: Request) {
     });
 
     // Save assistant response
-    const assistantContent = response.message.content || "Action proposed below:";
+    const assistantContent = response.message.content || "I'm right here with you! What shall we work on today?";
     const savedMsg = await prisma.message.create({
       data: {
         conversationId: conv.id,
