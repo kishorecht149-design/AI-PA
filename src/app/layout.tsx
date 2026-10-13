@@ -42,7 +42,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getSessionUser();
-  const userName = user?.name || "Kishore Kumar";
+  const userName = user?.name || "Kishore";
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>

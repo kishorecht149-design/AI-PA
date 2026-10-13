@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 
 export function AppShell({
   children,
-  userName = "Kishore Kumar",
+  userName = "Kishore",
 }: {
   children: React.ReactNode;
   userName?: string;

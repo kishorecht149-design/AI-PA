@@ -19,7 +19,7 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 import { ThemeBrowser } from "@/components/ThemeBrowser";
 
 export default function SettingsPage() {
-  const [profileName, setProfileName] = useState("Kishore Kumar");
+  const [profileName, setProfileName] = useState("Kishore");
   const [workingStart, setWorkingStart] = useState("08:30");
   const [workingEnd, setWorkingEnd] = useState("22:30");
   const [focusMin, setFocusMin] = useState(45);

@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 
 export default async function HomePage() {
   const user = await getSessionUser();
-  const userName = user?.name || "Kishore Kumar";
+  const userName = user?.name || "Kishore";
 
   return <HomeClient userName={userName} />;
 }
