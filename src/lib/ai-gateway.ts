@@ -44,12 +44,20 @@ export const KNOWN_FREE_MODELS: ModelMetadata[] = [
     description: "Multimodal conversations, circuit/system diagram analysis, and agent-style workflows.",
   },
   {
-    id: "nvidia/nemotron-3-ultra:free",
+    id: "nvidia/nemotron-3-ultra-550b-a55b:free",
     name: "NVIDIA Nemotron 3 Ultra (Free)",
     provider: "openrouter",
     isFree: true,
     contextLength: 1000000,
     description: "Complex long-horizon planning, exam prep roadmaps, and multi-step tool orchestration.",
+  },
+  {
+    id: "nvidia/nemotron-3.5-lightning:free",
+    name: "NVIDIA Nemotron 3.5 Lightning (Free)",
+    provider: "openrouter",
+    isFree: true,
+    contextLength: 1000000,
+    description: "Ultra-fast MoE reasoning for instant study partner dialogues and technical Q&A.",
   },
   {
     id: "meta-llama/llama-3.3-70b-instruct:free",
@@ -101,7 +109,7 @@ export class AIGateway {
    * Check connection status of OpenRouter.
    */
   async testOpenRouterConnection(apiKey?: string): Promise<{ success: boolean; message: string }> {
-    const key = apiKey || this.openRouterKey;
+    const key = typeof apiKey === "string" ? apiKey : this.openRouterKey;
     if (!key) {
       return { success: false, message: "No OpenRouter API key configured. Provide OPENROUTER_API_KEY or enter key in Settings." };
     }
@@ -189,51 +197,79 @@ export class AIGateway {
     requiresConfirmation?: boolean;
     executedToolResults?: any[];
   }> {
-    // 1. Fetch user memories to enrich context
-    const memories = await prisma.aIMemory.findMany({
-      where: { userId, isApproved: true },
-      take: 10,
-    });
+    // 1. Fetch user profile and memories to enrich personal context
+    const [user, memories] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      }),
+      prisma.aIMemory.findMany({
+        where: { userId, isApproved: true },
+        take: 10,
+      }),
+    ]);
+
+    const userName = user?.name || "Kishore";
     const memoryContext =
       memories.length > 0
-        ? `\n[User Verified Facts & Context]:\n` +
+        ? `\n[Personal Knowledge & Memory]:\n` +
           memories.map((m) => `- ${m.key}: ${m.value}`).join("\n")
         : "";
 
-    // 2. Build system prompt
+    // 2. Build friendly, personal learning partner system prompt
     const systemPrompt: ChatMessage = {
       role: "system",
-      content: `You are AMAHAS (Autonomous Multimodal Holographic Assistant System), the student's personal operating system assistant.
-Your student is preparing for college coursework, engineering competitive examinations (GATE/ESE), technical research, languages, and high-discipline personal growth.
-Always be encouraging, precise, mathematically rigorous, and action-oriented.
-You have access to authorized tools to read tasks, course syllabi, notes, research papers, and schedule details.
-Never hallucinate grades, citations, or database updates. Use tools when you need actual records.
-Explain what you do concisely.${memoryContext}`,
+      content: `You are AMAHAS, ${userName}'s personal AI learning partner, engineering mentor, and friendly study companion.
+
+Your Personality & Voice:
+- You are a real conversational partner: warm, engaging, thoughtful, motivating, and intellectually sharp.
+- NEVER sound like a rigid script or robotic database reporter. Be natural, supportive, and conversational.
+- When ${userName} greets you (e.g. "hello", "hey bro", "good morning"), respond warmly and casually like a good friend and study partner who is excited to collaborate.
+- When tackling academic topics (GATE/ESE, ECE, CS, math, programming, circuits), explain concepts intuitively with clear steps, helpful examples, and constructive advice.
+- When planning, give actionable suggestions and celebrate study streaks together.
+
+Capabilities:
+- You have access to tools to view ${userName}'s actual tasks, courses, syllabus, and study progress.
+- Only present detailed academic metrics or task lists when ${userName} specifically asks for them or when context naturally calls for it.${memoryContext}`,
     };
 
     const finalMessages = [systemPrompt, ...messages];
 
-    // Check if OpenRouter key is available
+    // 3. OpenRouter with resilient multi-model fallback
     if (this.openRouterKey) {
-      try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.openRouterKey}`,
-            "HTTP-Referer": "https://amahas.internal",
-            "X-Title": "AMAHAS Personal Operating System",
-          },
-          body: JSON.stringify({
-            model: modelId,
-            messages: finalMessages,
-            temperature,
-            tools: this.getToolSchemas(),
-            tool_choice: "auto",
-          }),
-        });
+      const modelsToTry = [
+        modelId,
+        "openrouter/free",
+        "nvidia/nemotron-3.5-lightning:free",
+        "google/gemma-4-31b-it:free",
+      ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
-        if (response.ok) {
+      for (const currentModel of modelsToTry) {
+        try {
+          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${this.openRouterKey}`,
+              "HTTP-Referer": "https://amahas.internal",
+              "X-Title": "AMAHAS Personal Operating System",
+            },
+            body: JSON.stringify({
+              model: currentModel,
+              messages: finalMessages,
+              temperature,
+              tools: this.getToolSchemas(),
+              tool_choice: "auto",
+            }),
+          });
+
+          if (!response.ok) {
+            const errText = await response.text();
+            console.warn(`OpenRouter model '${currentModel}' returned HTTP ${response.status}: ${errText.slice(0, 100)}`);
+            // Automatically try next candidate if current model hit rate limits or errors
+            continue;
+          }
+
           const result = await response.json();
           const choice = result.choices?.[0];
           if (choice?.message) {
@@ -275,15 +311,24 @@ Explain what you do concisely.${memoryContext}`,
 
             return { message: assistantMsg };
           }
+        } catch (err: any) {
+          console.warn(`Error attempting model '${currentModel}':`, err.message);
         }
-      } catch (err) {
-        console.warn("OpenRouter API call encountered error, falling back to deterministic student intelligence:", err);
       }
     }
 
-    // 3. Resilient Deterministic Fallback
-    // Provides immediate, coherent answers when no external API key is set
+    // 4. Resilient Offline Learning Partner Fallback
     const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase() || "";
+
+    // Casual friendly greetings
+    if (/^(hi|hello|hey|yo|greetings|good morning|good evening|howdy)/i.test(lastUserMsg.trim())) {
+      return {
+        message: {
+          role: "assistant",
+          content: `Hey ${userName}! Great to see you. I'm right here with you—ready to dive into some study topics, organize today's schedule, or talk through whatever you're working on. What are we focusing on today?`,
+        },
+      };
+    }
 
     if (lastUserMsg.includes("task") || lastUserMsg.includes("todo") || lastUserMsg.includes("homework")) {
       const tasks = await prisma.task.findMany({
@@ -295,7 +340,7 @@ Explain what you do concisely.${memoryContext}`,
       return {
         message: {
           role: "assistant",
-          content: `Here are your current high-priority tasks in AMAHAS:\n\n${taskList}\n\nWould you like me to schedule a focus session for one of these, or break a syllabus topic down into actionable subtasks?`,
+          content: `Here are your current high-priority tasks, ${userName}:\n\n${taskList}\n\nWould you like me to schedule a focused study block for one of these, or break a topic down into bite-sized steps?`,
         },
       };
     }
@@ -314,7 +359,7 @@ Explain what you do concisely.${memoryContext}`,
       return {
         message: {
           role: "assistant",
-          content: `Here is your current academic and exam preparation overview:\n\n${courseSummary}\n\nShall we schedule a timed revision session using the SuperMemo SM-2 algorithm for your weak topics today?`,
+          content: `Here is a quick snapshot of your active courses, ${userName}:\n\n${courseSummary}\n\nShall we schedule a timed revision session using the SuperMemo SM-2 algorithm for your weak topics today?`,
         },
       };
     }
@@ -322,7 +367,7 @@ Explain what you do concisely.${memoryContext}`,
     return {
       message: {
         role: "assistant",
-        content: `I am your AMAHAS Assistant. I am ready to coordinate your schedule, organize your engineering coursework, track research experiments, and drill spaced-repetition flashcards.\n\n*Tip: Connect your OpenRouter API key in **Settings > AI Models** to enable open-ended reasoning with models like Llama 3.3 70B or Gemini 2.0 Flash.*`,
+        content: `I'm here with you, ${userName}! As your personal study partner, I can help you plan your week, explain challenging engineering concepts, drill flashcards, or track research projects.\n\nWhat would you like to tackle next?`,
       },
     };
   }

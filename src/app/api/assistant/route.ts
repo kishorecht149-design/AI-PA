@@ -121,14 +121,14 @@ export async function POST(req: Request) {
       },
     });
 
-    // Load recent history
-    const history = await prisma.message.findMany({
+    // Load recent history (most recent 20 messages in chronological order)
+    const recentMessages = await prisma.message.findMany({
       where: { conversationId: conv.id },
-      orderBy: { createdAt: "asc" },
-      take: 8,
+      orderBy: { createdAt: "desc" },
+      take: 20,
     });
 
-    const formattedHistory = history.map((m) => ({
+    const formattedHistory = recentMessages.reverse().map((m) => ({
       role: m.role as any,
       content: m.content,
     }));
