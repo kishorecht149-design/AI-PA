@@ -44,38 +44,38 @@ export function AiOrb({
     },
   }[size];
 
-  // Dynamic theme colors per state
+  // Dynamic monochrome obsidian & silver starlight theme per state
   const stateThemes = {
     idle: {
-      glow: "from-cyan-500/30 via-violet-600/20 to-blue-500/30",
-      core: "bg-gradient-to-br from-cyan-400 via-violet-500 to-blue-600",
-      borderRing1: "border-cyan-400/40",
-      borderRing2: "border-violet-400/40",
+      glow: "from-white/20 via-zinc-400/10 to-white/20",
+      core: "bg-gradient-to-br from-white via-zinc-200 to-zinc-400 text-black",
+      borderRing1: "border-white/40",
+      borderRing2: "border-zinc-400/30",
       label: "Ready",
-      labelColor: "text-cyan-400",
+      labelColor: "text-white",
     },
     listening: {
       glow: "from-rose-500/40 via-red-600/30 to-amber-500/30",
-      core: "bg-gradient-to-br from-rose-400 via-red-500 to-amber-500",
+      core: "bg-gradient-to-br from-rose-400 via-red-500 to-amber-500 text-black",
       borderRing1: "border-rose-400/60 animate-ping",
       borderRing2: "border-red-400/50",
       label: "Listening...",
       labelColor: "text-rose-400",
     },
     thinking: {
-      glow: "from-amber-400/40 via-violet-600/40 to-cyan-400/40",
-      core: "bg-gradient-to-br from-amber-300 via-violet-500 to-cyan-400",
-      borderRing1: "border-amber-400/60",
-      borderRing2: "border-cyan-400/60",
+      glow: "from-white/40 via-zinc-300/30 to-white/40",
+      core: "bg-gradient-to-br from-white via-zinc-100 to-zinc-400 text-black",
+      borderRing1: "border-white/70",
+      borderRing2: "border-zinc-300/60",
       label: "Reasoning & Searching...",
-      labelColor: "text-violet-400",
+      labelColor: "text-zinc-200",
     },
     speaking: {
-      glow: "from-emerald-400/30 via-cyan-500/30 to-violet-500/30",
-      core: "bg-gradient-to-br from-emerald-400 via-cyan-400 to-violet-500",
-      borderRing1: "border-emerald-400/50",
-      borderRing2: "border-cyan-400/50",
-      label: "Voice Synthesizing...",
+      glow: "from-white/25 via-emerald-400/25 to-white/25",
+      core: "bg-gradient-to-br from-white via-zinc-200 to-emerald-400 text-black",
+      borderRing1: "border-white/50",
+      borderRing2: "border-emerald-400/40",
+      label: "Speaking...",
       labelColor: "text-emerald-400",
     },
   }[state];

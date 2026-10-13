@@ -5,9 +5,9 @@ import { getSessionUser } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/themes/theme-provider";
 
 export const metadata: Metadata = {
-  title: "AMAHAS — Intelligent Personal Operating System for Students",
+  title: "AMAHAS — Autonomous Personal Workspace & Intelligence System",
   description:
-    "Autonomous Multimodal Holographic Assistant System for academics, GATE/ESE preparation, systems research, and lifelong learning.",
+    "Autonomous Personal Workspace & Intelligence System for high-performance execution, knowledge architecture, research, and deep focus.",
   icons: {
     icon: "/brand/favicon.png",
     apple: "/brand/amahas-symbol.png",
@@ -18,7 +18,7 @@ const themeInitScript = `
 (function() {
   try {
     var stored = localStorage.getItem('amahas_theme_pref');
-    var themeId = 'amahas-signature';
+    var themeId = 'pure-black';
     if (stored) {
       var parsed = JSON.parse(stored);
       if (parsed.activeThemeId) themeId = parsed.activeThemeId;
@@ -51,7 +51,7 @@ export default async function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className="bg-[#070b14] text-slate-100 antialiased selection:bg-cyan-500/20 selection:text-cyan-200"
+        className="bg-black text-white antialiased selection:bg-white/20 selection:text-white"
       >
         <ThemeProvider>
           <AppShell userName={userName}>{children}</AppShell>

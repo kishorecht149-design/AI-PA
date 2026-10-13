@@ -209,37 +209,36 @@ export class AIGateway {
       }),
     ]);
 
-    const userName = user?.name || "Kishore";
+    const userName = user?.name || "there";
     const memoryContext =
       memories.length > 0
         ? `\n[Personal Knowledge & Memory]:\n` +
           memories.map((m) => `- ${m.key}: ${m.value}`).join("\n")
         : "";
 
-    // 2. Build friendly, personal learning partner system prompt
+    // 2. Build professional, autonomous workspace intelligence prompt
     const systemPrompt: ChatMessage = {
       role: "system",
-      content: `You are AMAHAS, ${userName}'s personal AI learning partner, engineering mentor, and friendly study companion.
+      content: `You are AMAHAS, an autonomous workspace intelligence partner, research companion, and deep work mentor for ${userName}.
 
 Your Personality & Voice:
-- You are a real conversational partner: warm, engaging, thoughtful, motivating, and intellectually sharp.
+- You are a real conversational partner: articulate, thoughtful, objective, clear, and intellectually sharp.
 - NEVER sound like a rigid script or robotic database reporter. Be natural, supportive, and conversational.
-- When ${userName} greets you (e.g. "hello", "hey bro", "good morning"), respond warmly and casually like a good friend and study partner who is excited to collaborate.
-- When tackling academic topics (GATE/ESE, ECE, CS, math, programming, circuits), explain concepts intuitively with clear steps, helpful examples, and constructive advice.
-- When planning, give actionable suggestions and celebrate study streaks together.
+- When ${userName} greets you, respond warmly and casually like a reliable colleague and collaborator.
+- When tackling technical, mathematical, or scientific questions, explain concepts intuitively with clear steps, rigorous intuition, and practical examples.
+- When planning, give actionable suggestions and help organize projects and milestones effectively.
+- You adapt seamlessly to the user's domain and never assume exams or narrow tracks unless the user explicitly asks for them.
 
-Capabilities & Site Customization:
+Capabilities & Workspace Customization:
 - You have authorized tools to view ${userName}'s tasks, courses, syllabus, and study progress.
 - You CAN and SHOULD customize the website and dashboard when ${userName} asks! If ${userName} asks to create or organize sections on the dashboard (such as creating a "Resources" section with folders for "Video Links", "Online Materials", "Books", "Information"), USE the 'customize_dashboard_section' tool.
 - Never claim "I cannot modify your dashboard" — you have real tools to create dashboard sections, resource folders, and custom hubs.
 
 Live Web Search Engine & Research:
 - You are equipped with a live web search engine ('search_web') and webpage reader ('fetch_webpage_content').
-- You CAN and SHOULD act as an intelligent search engine across websites and the live internet!
 - Whenever ${userName} asks about live web information, latest tech, documentation, external websites, online tutorials, research papers, or real-time facts across the web, USE the 'search_web' tool to query the internet.
 - Provide clean, comprehensive answers synthesized from the search results, citing relevant webpage titles and URLs so ${userName} can easily navigate to the sources.
-- If ${userName} asks you to read or summarize a specific webpage URL, USE the 'fetch_webpage_content' tool.
-- Only present detailed academic metrics or task lists when ${userName} specifically asks for them or when context naturally calls for it.${memoryContext}`,
+- If ${userName} asks you to read or summarize a specific webpage URL, USE the 'fetch_webpage_content' tool.${memoryContext}`,
     };
 
     const finalMessages = [systemPrompt, ...messages];
@@ -249,8 +248,11 @@ Live Web Search Engine & Research:
       const modelsToTry = [
         modelId,
         "openrouter/free",
-        "nvidia/nemotron-3.5-lightning:free",
-        "google/gemma-4-31b-it:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "google/gemma-2-9b-it:free",
+        "mistralai/mistral-7b-instruct:free",
+        "deepseek/deepseek-r1:free",
+        "qwen/qwen-2.5-72b-instruct:free",
       ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
       for (const currentModel of modelsToTry) {
@@ -437,14 +439,14 @@ Live Web Search Engine & Research:
 ### 2. 🗂️ Interactive Website & Dashboard Customization
 • I can create, customize, and organize custom sections on your dashboard (e.g. creating a **Resources** hub with folders for *Video Links*, *Books*, *Materials*).
 
-### 3. 📚 GATE & ESE Syllabus Mastery with SM-2
-• Track unit-by-unit syllabi for core branches (ECE, CSE, Electrical, Mathematics).
+### 3. 📚 Knowledge Architecture & Spaced Repetition (SM-2)
+• Track unit-by-unit concept mastery, courses, and documentation.
 • Schedule algorithmic spaced revisions using the **SuperMemo SM-2** memory retention algorithm.
 
-### 4. 🔬 Systems Research Lab
-• Ingest arXiv and OpenAlex papers, track reading pipelines, and log mixed-precision quantization experiments.
+### 4. 🔬 Systems & Empirical Research Lab
+• Ingest arXiv and OpenAlex papers, track reading pipelines, and log empirical benchmarks.
 
-### 5. ⏱️ Focus & Time Management
+### 5. ⏱️ Deep Focus & Time Management
 • Create, prioritize, and complete tasks with duration estimates and deadlines.
 • Detect schedule conflicts and plan time-blocked deep work study sessions.
 
@@ -651,11 +653,18 @@ Would you like me to drill a sample GATE numerical question or break down a deri
       }
     } catch {}
 
-    // H. Final Contextual Tutor Prompt
+    // H. Contextual synthesis response (Dynamic & Never repetitive)
     return {
       message: {
         role: "assistant",
-        content: `I'm analyzing your request about **"${lastUserMsg}"**, ${userName}. You can ask me to search live YouTube tutorials, explain engineering theories, review syllabus units, or customize your dashboard sections.\n\nCould you clarify how you'd like to proceed?`,
+        content: `I understand your goal regarding **"${lastUserMsg}"**, ${userName}.
+
+Here is how we can tackle this effectively:
+1. **Explore & Research**: We can search live literature, documentation, or tutorial references across the web.
+2. **Execution & Action**: I can schedule a dedicated focus block, break this down into actionable milestones, or track it on your workspace.
+3. **Deep Synthesis**: Tell me which specific sub-topic or question you want to explore first, and I will walk you through it step-by-step.
+
+What would be the most helpful next step?`,
       },
     };
   }

@@ -3,58 +3,58 @@
 @tailwind utilities;
 
 :root {
-  /* Default AMAHAS Signature Tokens */
-  --bg-primary: #070b14;
-  --bg-secondary: #0b1120;
-  --bg-elevated: #0f172a;
-  --bg-sidebar: #070b14;
-  --bg-card: #0b1120;
+  /* Default AMAHAS Pure Black Obsidian Palette */
+  --bg-primary: #000000;
+  --bg-secondary: #080808;
+  --bg-elevated: #111111;
+  --bg-sidebar: #000000;
+  --bg-card: #0c0c0c;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-focus: #00e5ff;
-  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-focus: #ffffff;
+  --border-subtle: rgba(255, 255, 255, 0.05);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
 
-  --accent-primary: #00e5ff;
-  --accent-secondary: #8b5cf6;
-  --accent-tertiary: #3b82f6;
-  --accent-hover: #22d3ee;
-  --accent-text: #070b14;
+  --accent-primary: #ffffff;
+  --accent-secondary: #d4d4d8;
+  --accent-tertiary: #a1a1aa;
+  --accent-hover: #e4e4e7;
+  --accent-text: #000000;
 
-  --btn-bg: #00e5ff;
-  --btn-text: #070b14;
-  --btn-hover: #22d3ee;
-  --btn-sec-bg: rgba(255, 255, 255, 0.06);
-  --btn-sec-text: #f8fafc;
+  --btn-bg: #ffffff;
+  --btn-text: #000000;
+  --btn-hover: #e4e4e7;
+  --btn-sec-bg: rgba(255, 255, 255, 0.08);
+  --btn-sec-text: #ffffff;
 
-  --input-bg: rgba(255, 255, 255, 0.04);
-  --input-border: rgba(255, 255, 255, 0.12);
-  --input-text: #f8fafc;
-  --input-placeholder: #64748b;
+  --input-bg: #09090b;
+  --input-border: #27272a;
+  --input-text: #ffffff;
+  --input-placeholder: #52525b;
 
-  --status-success: #10b981;
-  --status-warning: #f59e0b;
+  --status-success: #22c55e;
+  --status-warning: #eab308;
   --status-error: #ef4444;
-  --status-info: #00e5ff;
+  --status-info: #ffffff;
 
-  --badge-bg: rgba(0, 229, 255, 0.12);
-  --badge-text: #22d3ee;
+  --badge-bg: rgba(255, 255, 255, 0.08);
+  --badge-text: #ffffff;
 
-  --ring: rgba(0, 229, 255, 0.5);
-  --scrollbar-track: #070b14;
-  --scrollbar-thumb: #1e293b;
+  --ring: rgba(255, 255, 255, 0.4);
+  --scrollbar-track: #000000;
+  --scrollbar-thumb: #27272a;
 
-  --theme-glow: 0 0 20px -5px rgba(0, 229, 255, 0.25);
+  --theme-glow: 0 0 25px -5px rgba(255, 255, 255, 0.15);
   --radius: 0.75rem;
 
-  --chart-1: #00e5ff;
-  --chart-2: #8b5cf6;
-  --chart-3: #3b82f6;
-  --chart-4: #10b981;
-  --chart-5: #f59e0b;
+  --chart-1: #ffffff;
+  --chart-2: #a1a1aa;
+  --chart-3: #71717a;
+  --chart-4: #22c55e;
+  --chart-5: #eab308;
 }
 
 body {
@@ -303,3 +303,58 @@ body {
 .animate-scan-beam {
   animation: scan-beam 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-150%);
+  }
+  100% {
+    transform: translateX(150%);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.15));
+  }
+  50% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.35));
+  }
+}
+
+@keyframes halo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 4.5s ease-in-out infinite;
+}
+
+.animate-shimmer-sweep {
+  animation: shimmer-sweep 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3.6s ease-in-out infinite;
+}
+
+.animate-halo-spin {
+  animation: halo-spin 12s linear infinite;
+}
+

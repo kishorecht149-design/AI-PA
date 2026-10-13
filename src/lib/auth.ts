@@ -42,7 +42,37 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 export async function resolveApiUserId(): Promise<string | null> {
   const user = await getSessionUser();
   if (user) return user.id;
-  const primaryUser = await prisma.user.findFirst({ select: { id: true } });
+  let primaryUser = await prisma.user.findFirst({ select: { id: true } });
+  if (!primaryUser) {
+    try {
+      const defaultUser = await prisma.user.create({
+        data: {
+          name: "Member",
+          email: "workspace@amahas.internal",
+          passwordHash: hashPassword("amahas_secure_system_key"),
+          profile: {
+            create: {
+              institution: "Autonomous Intelligence Lab",
+              program: "Systems Architecture",
+              academicYear: "Professional",
+              primaryFocus: "Autonomous Systems & Intelligence",
+              examinationTrack: "GENERAL",
+            },
+          },
+          preferences: {
+            create: {
+              theme: "pure-black",
+            },
+          },
+        },
+        select: { id: true },
+      });
+      primaryUser = defaultUser;
+    } catch {
+      // If concurrent insert occurred, fetch first user
+      primaryUser = await prisma.user.findFirst({ select: { id: true } });
+    }
+  }
   return primaryUser?.id || null;
 }
 

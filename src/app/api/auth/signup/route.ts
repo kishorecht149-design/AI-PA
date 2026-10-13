@@ -49,7 +49,7 @@ export async function POST(req: Request) {
         },
         preferences: {
           create: {
-            theme: "dark",
+            theme: "pure-black",
           },
         },
       },

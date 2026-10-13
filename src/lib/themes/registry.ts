@@ -2,7 +2,7 @@ import type { Theme, ThemeId, ThemeCategory, ThemeSchedule } from "./types.ts";
 import { THEMES } from "./tokens.ts";
 export { THEMES };
 
-export const DEFAULT_THEME_ID: ThemeId = "amahas-signature";
+export const DEFAULT_THEME_ID: ThemeId = "pure-black";
 
 export const THEMES_LIST: Theme[] = Object.values(THEMES);
 

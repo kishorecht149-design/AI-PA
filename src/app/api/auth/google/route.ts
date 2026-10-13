@@ -36,17 +36,17 @@ export async function POST(req: Request) {
           avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanName)}`,
           profile: {
             create: {
-              institution: "Engineering & Applied Sciences",
-              program: "B.Tech Computer Science & Engineering",
-              academicYear: "3rd Year",
-              primaryFocus: "GATE / ESE Prep & Systems Intelligence",
-              examinationTrack: "GATE_CS",
+              institution: "Autonomous Intelligence Lab",
+              program: "Applied Engineering & Research",
+              academicYear: "Professional",
+              primaryFocus: "Autonomous Systems & Execution Architecture",
+              examinationTrack: "GENERAL",
             },
           },
           preferences: {
             create: {
               timeZone: "Asia/Kolkata",
-              theme: "amahas-signature",
+              theme: "pure-black",
               aiModelPreference: "openrouter/free",
             },
           },

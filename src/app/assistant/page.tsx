@@ -109,7 +109,7 @@ export default function AssistantPage() {
             {
               role: "assistant",
               content:
-                "Greetings, Kishore. I am your AMAHAS Assistant. I coordinate your academic syllabus revisions, research paper tracking, and task execution. How may I assist your engineering work today?",
+                "Greetings. I am your AMAHAS Assistant. I coordinate your research, project execution, and deep focus workflows. How may I assist your work today?",
             },
           ]);
         }
@@ -515,7 +515,7 @@ export default function AssistantPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setInput("Quiz me on GATE syllabus topic: ");
+                        setInput("Quiz me with 3 rapid questions on: ");
                         setShowActionMenu(false);
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs text-slate-200 hover:bg-white/10 transition-colors"
@@ -524,8 +524,8 @@ export default function AssistantPage() {
                         <GraduationCap className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-slate-100">GATE Practice Quiz</div>
-                        <div className="text-[10px] text-slate-400">3-question SM-2 concept drill</div>
+                        <div className="font-semibold text-slate-100">Concept Mastery Quiz</div>
+                        <div className="text-[10px] text-slate-400">3-question knowledge retention drill</div>
                       </div>
                     </button>
 
@@ -642,8 +642,8 @@ export default function AssistantPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask assistant to search web, schedule tasks, drill GATE syllabus concepts, or create dashboard sections..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400/30 transition-all"
+            placeholder="Ask assistant to search the web, plan tasks, analyze research, or organize workspace..."
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
           />
 
           <button
