@@ -190,7 +190,7 @@ export default function BrandPreviewApprovalPage() {
               When user selects a light theme, AMAHAS renders the <strong>Champagne Gold & Dark Titanium</strong> master emblem with warm amber specular sweeps.
             </p>
 
-            <div className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center">
+            <div className="p-3 rounded-2xl bg-gradient-to-b from-zinc-50 to-amber-50/40 border border-zinc-200 flex items-center justify-center">
               <AmahasAnimatedLogo
                 edition="gold"
                 size={140}

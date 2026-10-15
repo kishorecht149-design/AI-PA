@@ -1,22 +1,45 @@
 <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="fav-arch" x1="15" y1="80" x2="85" y2="20" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#00e5ff" />
-      <stop offset="40%" stop-color="#0284c7" />
-      <stop offset="80%" stop-color="#6366f1" />
-      <stop offset="100%" stop-color="#a855f7" />
+    <linearGradient id="gold-metal" x1="10" y1="10" x2="90" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="25%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#d97706" />
+      <stop offset="75%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#b45309" />
     </linearGradient>
-    <linearGradient id="fav-ring" x1="10" y1="50" x2="90" y2="40" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#00e5ff" />
-      <stop offset="100%" stop-color="#f472b6" />
+    <linearGradient id="graphite-metal" x1="20" y1="20" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3f3f46" />
+      <stop offset="50%" stop-color="#18181b" />
+      <stop offset="100%" stop-color="#09090b" />
     </linearGradient>
+    <radialGradient id="glint" cx="50%" cy="30%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
   </defs>
-  <!-- Background rounded canvas for crisp tab visibility -->
-  <rect width="100" height="100" rx="22" fill="#070b14" />
-  <path d="M 52 32 C 72 26, 92 32, 88 44 C 84 55, 68 62, 52 64" stroke="url(#fav-ring)" stroke-width="4" stroke-linecap="round" />
-  <path d="M 27 75 L 43 28 C 45 22, 55 22, 57 28 L 73 75 C 75 79, 70 82, 66 79 L 55 46 C 53 40, 47 40, 45 46 L 34 79 C 30 82, 25 79, 27 75 Z" fill="url(#fav-arch)" />
-  <circle cx="50" cy="44" r="6" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5" />
-  <path d="M 37 68 C 43 56, 57 56, 63 68 C 58 63, 42 63, 37 68 Z" fill="#0284c7" />
-  <path d="M 12 56 C 14 44, 30 36, 48 34" stroke="#00e5ff" stroke-width="4.5" stroke-linecap="round" />
-  <path d="M 12 56 C 14 62, 26 66, 42 66" stroke="url(#fav-ring)" stroke-width="4" stroke-linecap="round" />
+
+  <!-- Deep OLED Black Container -->
+  <rect width="100" height="100" rx="24" fill="#000000" />
+
+  <!-- Outer Orbit Ribbon / Facial Profile Silhouette -->
+  <path d="M 52 14 C 74 12, 86 28, 80 44 C 75 56, 56 60, 42 62" stroke="url(#gold-metal)" stroke-width="4.5" stroke-linecap="round" />
+  <path d="M 78 40 C 82 44, 84 50, 80 56 C 84 60, 82 66, 76 72" stroke="url(#gold-metal)" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- Inner Dark Graphite Leg -->
+  <path d="M 28 80 L 44 26 C 46 22, 52 22, 54 26 L 40 80 Z" fill="url(#graphite-metal)" stroke="url(#gold-metal)" stroke-width="1.2" />
+
+  <!-- Main Golden 'A' Arch -->
+  <path d="M 44 26 L 68 80 C 70 84, 65 86, 61 83 L 52 52 C 50 46, 44 46, 42 52 L 35 82 C 31 85, 26 82, 28 78 Z" fill="url(#gold-metal)" />
+  <path d="M 44 26 L 68 80 C 70 84, 65 86, 61 83 L 52 52 C 50 46, 44 46, 42 52 L 35 82 C 31 85, 26 82, 28 78 Z" fill="url(#glint)" />
+
+  <!-- Neural Constellation Beads -->
+  <circle cx="36" cy="38" r="3" fill="#fde047" stroke="#ffffff" stroke-width="1" />
+  <circle cx="68" cy="36" r="3.5" fill="#fde047" stroke="#ffffff" stroke-width="1" />
+  <circle cx="74" cy="54" r="2.5" fill="#fde047" stroke="#ffffff" stroke-width="0.8" />
+  <circle cx="58" cy="64" r="2.5" fill="#fde047" stroke="#ffffff" stroke-width="0.8" />
+
+  <!-- Connective Synapse Wires -->
+  <line x1="36" y1="38" x2="68" y2="36" stroke="#fde047" stroke-width="0.75" stroke-opacity="0.6" stroke-dasharray="1 1" />
+  <line x1="68" y1="36" x2="74" y2="54" stroke="#fde047" stroke-width="0.75" stroke-opacity="0.6" stroke-dasharray="1 1" />
+  <line x1="74" y1="54" x2="58" y2="64" stroke="#fde047" stroke-width="0.75" stroke-opacity="0.6" stroke-dasharray="1 1" />
 </svg>

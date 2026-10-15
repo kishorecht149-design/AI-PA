@@ -1,69 +1,95 @@
 "use client";
 
 import React from "react";
+import { useTheme } from "@/lib/themes/theme-provider";
+import AmahasAnimatedLogo from "./AmahasAnimatedLogo";
 
 export interface AmahasLogoProps {
   variant?: "primary" | "compact" | "symbol" | "sidebar";
   size?: "sm" | "md" | "lg" | "xl";
+  edition?: "silver" | "gold" | "auto";
+  interactive?: boolean;
   className?: string;
   showSubtitle?: boolean;
+  onClick?: () => void;
 }
 
 /**
  * Official AMAHAS 3D Brand Logo Component
- * Uses the authentic, high-resolution 3D rendered artwork.
+ * Renders the authentic, high-resolution 3D WebGL emblem with dynamic theme adaptation:
+ * - Edition B (Champagne Gold & Dark Charcoal) for white and light themes.
+ * - Edition A (Platinum Titanium Silver & Charcoal) for OLED black and dark themes.
  */
 export function AmahasLogo({
   variant = "primary",
   size = "md",
+  edition = "auto",
+  interactive = true,
   className = "",
   showSubtitle = true,
+  onClick,
 }: AmahasLogoProps) {
-  // Standalone 3D Emblem Symbol
-  if (variant === "symbol") {
-    const symbolSizes = {
-      sm: "w-7 h-7",
-      md: "w-9 h-9",
-      lg: "w-12 h-12",
-      xl: "w-16 h-16",
-    }[size];
+  const themeContext = useTheme();
+  const isDark = themeContext ? themeContext.theme.isDark : true;
 
-    const pxSize = size === "sm" ? 28 : size === "lg" ? 48 : size === "xl" ? 64 : 36;
+  const resolvedEdition = edition === "auto" ? (isDark ? "silver" : "gold") : edition;
+  const isSilver = resolvedEdition === "silver";
+
+  const palette = isSilver
+    ? {
+        textGradient: "from-zinc-100 via-zinc-300 to-zinc-500",
+        subtitleColor: "text-sky-400",
+      }
+    : {
+        textGradient: "from-amber-300 via-yellow-500 to-amber-700",
+        subtitleColor: "text-amber-500",
+      };
+
+  // 1. Standalone 3D Emblem Symbol
+  if (variant === "symbol") {
+    const pxSize = size === "sm" ? 28 : size === "md" ? 36 : size === "lg" ? 52 : 72;
 
     return (
-      <img
-        src="/brand/amahas-symbol.png"
-        alt="AMAHAS Symbol"
-        width={pxSize}
-        height={pxSize}
-        style={{ width: pxSize, height: pxSize, maxWidth: pxSize, maxHeight: pxSize }}
-        className={`${symbolSizes} object-contain flex-shrink-0 drop-shadow-md select-none ${className}`}
-      />
+      <div onClick={onClick} className={`select-none flex-shrink-0 ${className}`}>
+        <AmahasAnimatedLogo
+          edition={resolvedEdition}
+          size={pxSize}
+          interactive3D={interactive}
+          enableShimmer={true}
+          showText={false}
+        />
+      </div>
     );
   }
 
-  // Sidebar compact lockup
+  // 2. Sidebar Navigation Lockup (36px Emblem + Typography)
   if (variant === "sidebar") {
+    const pxSize = size === "sm" ? 32 : size === "lg" ? 44 : 36;
+
     return (
-      <div className={`flex items-center gap-2.5 select-none ${className}`}>
-        <img
-          src="/brand/amahas-symbol.png"
-          alt="AMAHAS"
-          width={36}
-          height={36}
-          style={{ width: 36, height: 36, maxWidth: 36, maxHeight: 36 }}
-          className="w-9 h-9 object-contain flex-shrink-0 drop-shadow-md"
-        />
+      <div
+        onClick={onClick}
+        className={`flex items-center gap-2.5 select-none ${className}`}
+      >
+        <div className="flex-shrink-0">
+          <AmahasAnimatedLogo
+            edition={resolvedEdition}
+            size={pxSize}
+            interactive3D={interactive}
+            enableShimmer={true}
+            showText={false}
+          />
+        </div>
         <div className="flex flex-col leading-none justify-center">
           <span
-            className="font-black text-sm tracking-widest bg-gradient-to-r from-cyan-400 via-sky-200 to-violet-400 bg-clip-text text-transparent"
+            className={`font-black text-sm tracking-widest bg-gradient-to-r ${palette.textGradient} bg-clip-text text-transparent`}
             style={{ letterSpacing: "0.18em" }}
           >
             AMAHAS
           </span>
           {showSubtitle && (
             <span
-              className="text-[9px] uppercase tracking-widest text-cyan-400 font-semibold mt-0.5 opacity-90"
+              className={`text-[9px] uppercase tracking-widest ${palette.subtitleColor} font-semibold mt-0.5 opacity-90`}
               style={{ letterSpacing: "0.16em" }}
             >
               Student OS
@@ -74,20 +100,24 @@ export function AmahasLogo({
     );
   }
 
-  // Compact Header Lockup
+  // 3. Compact Header Lockup (28px Emblem + Wordmark)
   if (variant === "compact") {
     return (
-      <div className={`flex items-center gap-2 select-none ${className}`}>
-        <img
-          src="/brand/amahas-symbol.png"
-          alt="AMAHAS"
-          width={28}
-          height={28}
-          style={{ width: 28, height: 28, maxWidth: 28, maxHeight: 28 }}
-          className="w-7 h-7 object-contain flex-shrink-0 drop-shadow-sm"
-        />
+      <div
+        onClick={onClick}
+        className={`flex items-center gap-2 select-none ${className}`}
+      >
+        <div className="flex-shrink-0">
+          <AmahasAnimatedLogo
+            edition={resolvedEdition}
+            size={28}
+            interactive3D={interactive}
+            enableShimmer={true}
+            showText={false}
+          />
+        </div>
         <span
-          className="font-black text-xs tracking-wider bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent"
+          className={`font-black text-xs tracking-wider bg-gradient-to-r ${palette.textGradient} bg-clip-text text-transparent`}
           style={{ letterSpacing: "0.15em" }}
         >
           AMAHAS
@@ -96,24 +126,44 @@ export function AmahasLogo({
     );
   }
 
-  // Primary Full 3D Logo Lockup (with the authentic artwork)
-  const primarySizes = {
-    sm: "h-10",
-    md: "h-14",
-    lg: "h-20",
-    xl: "h-28",
+  // 4. Primary Full 3D Hero / Auth / Portal Lockup
+  const emblemSizes = {
+    sm: 48,
+    md: 68,
+    lg: 96,
+    xl: 130,
   }[size];
 
-  const maxH = size === "sm" ? 40 : size === "lg" ? 80 : size === "xl" ? 112 : 56;
-
   return (
-    <div className={`flex flex-col items-center select-none ${className}`}>
-      <img
-        src="/brand/amahas-logo.png"
-        alt="AMAHAS — Intelligent Personal Operating System for Students"
-        style={{ maxHeight: maxH, height: maxH, width: "auto" }}
-        className={`${primarySizes} w-auto object-contain drop-shadow-xl`}
+    <div
+      onClick={onClick}
+      className={`flex flex-col items-center select-none text-center ${className}`}
+    >
+      <AmahasAnimatedLogo
+        edition={resolvedEdition}
+        size={emblemSizes}
+        interactive3D={interactive}
+        enableShimmer={true}
+        showText={false}
       />
+      <div className="mt-3 flex flex-col items-center">
+        <span
+          className={`font-black tracking-[0.22em] uppercase bg-gradient-to-r ${palette.textGradient} bg-clip-text text-transparent drop-shadow-sm ${
+            size === "sm"
+              ? "text-lg"
+              : size === "lg" || size === "xl"
+              ? "text-2xl md:text-3xl"
+              : "text-xl"
+          }`}
+        >
+          AMAHAS
+        </span>
+        {showSubtitle && (
+          <span className="text-[10px] tracking-[0.28em] uppercase text-[var(--text-muted)] font-semibold mt-1">
+            Autonomous Workspace & Intelligence
+          </span>
+        )}
+      </div>
     </div>
   );
 }
