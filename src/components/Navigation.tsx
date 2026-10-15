@@ -29,6 +29,7 @@ import {
   Check,
   Bell,
   Network,
+  Zap,
 } from "lucide-react";
 import { AmahasLogo } from "@/components/brand/AmahasLogo";
 import { useTheme } from "@/lib/themes/theme-provider";
@@ -53,6 +54,7 @@ const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
     group: "Execution",
     items: [
       { name: "Planner", href: "/planner", icon: Calendar },
+      { name: "Deep Work Arena", href: "/focus", icon: Zap },
       { name: "Tasks", href: "/tasks", icon: CheckSquare },
       { name: "Projects", href: "/projects", icon: FolderKanban },
       { name: "Reminders & Alarms", href: "/reminders", icon: Bell },

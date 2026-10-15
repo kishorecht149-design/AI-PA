@@ -26,7 +26,7 @@ export interface GraphLink {
   strength?: number;
 }
 
-export function buildStarterGraph() {
+function buildStarterGraph() {
   const starterNodes: GraphNode[] = [
     {
       id: "sn-ai-arch",
