@@ -28,6 +28,7 @@ import {
   Palette,
   Check,
   Bell,
+  Network,
 } from "lucide-react";
 import { AmahasLogo } from "@/components/brand/AmahasLogo";
 import { useTheme } from "@/lib/themes/theme-provider";
@@ -68,6 +69,7 @@ const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
     group: "Knowledge & Growth",
     items: [
       { name: "Learning Studio", href: "/learning", icon: BookOpen },
+      { name: "Knowledge Graph", href: "/graph", icon: Network },
       { name: "Notes", href: "/notes", icon: FileText },
       { name: "Habits", href: "/habits", icon: Flame },
       { name: "Goals", href: "/goals", icon: Target },
