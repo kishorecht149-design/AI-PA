@@ -17,11 +17,9 @@ export interface GuardianBot3DProps {
   onActionTriggered?: (action: BotRigAction) => void;
 }
 
-// Global cached geometry and textures singleton
-let cachedBotScene: any = null;
-let botGltfPromise: Promise<any> | null = null;
-let cachedBotGoldTexture: any = null;
-let cachedBotSilverTexture: any = null;
+// Global cached geometry singleton
+let cachedSilverScene: any = null;
+let silverGltfPromise: Promise<any> | null = null;
 
 export function GuardianBot3D({
   action = "idle",
@@ -159,12 +157,13 @@ export function GuardianBot3D({
         scene.add(shineLight);
 
         // Core Reactor Luminescent Light (inside chest)
+        // Psychokinesis Core Light
         const coreLight = new THREE.PointLight(
-          isGold ? 0xf59e0b : 0x00e5ff,
-          3.0,
-          4
+          isGold ? 0xffd700 : 0x00fff5,
+          3.5,
+          6
         );
-        coreLight.position.set(0, 0.25, 0.5);
+        coreLight.position.set(0, 0.0, 0.8);
         scene.add(coreLight);
 
         // Bot Groups Hierarchy
@@ -173,18 +172,19 @@ export function GuardianBot3D({
         botGroup.add(torsoGroup);
         scene.add(botGroup);
 
-        // Glowing Chest Reactor Sprite
+        // Psychokinesis ESP Energy Aura Halo
         const coreCanvas = document.createElement("canvas");
-        coreCanvas.width = 128;
-        coreCanvas.height = 128;
+        coreCanvas.width = 256;
+        coreCanvas.height = 256;
         const ctx = coreCanvas.getContext("2d")!;
-        const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-        grad.addColorStop(0, "rgba(255, 255, 255, 1)");
-        grad.addColorStop(0.2, "rgba(254, 240, 138, 0.95)");
-        grad.addColorStop(0.5, "rgba(245, 158, 11, 0.5)");
+        const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+        grad.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+        grad.addColorStop(0.2, "rgba(0, 255, 245, 0.85)"); // Vibrant Cyan ESP aura
+        grad.addColorStop(0.5, "rgba(6, 182, 212, 0.4)");
+        grad.addColorStop(0.8, "rgba(14, 116, 144, 0.15)");
         grad.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillRect(0, 0, 256, 256);
 
         const coreTex = new THREE.CanvasTexture(coreCanvas);
         const coreMat = new THREE.SpriteMaterial({
@@ -194,22 +194,9 @@ export function GuardianBot3D({
           transparent: true,
         });
         const coreSprite = new THREE.Sprite(coreMat);
-        coreSprite.position.set(0, 0.25, 0.6);
-        coreSprite.scale.set(0.35, 0.35, 0.35);
+        coreSprite.position.set(0, 0.0, -0.2);
+        coreSprite.scale.set(1.4, 1.4, 1.4);
         torsoGroup.add(coreSprite);
-
-        // 4. Textures
-        const textureLoader = new THREE.TextureLoader();
-        if (!cachedBotGoldTexture) {
-          cachedBotGoldTexture = textureLoader.load("/assistant/bot-gold-texture.jpg");
-          cachedBotGoldTexture.colorSpace = THREE.SRGBColorSpace;
-          cachedBotGoldTexture.flipY = false;
-        }
-        if (!cachedBotSilverTexture) {
-          cachedBotSilverTexture = textureLoader.load("/assistant/bot-silver-texture.jpg");
-          cachedBotSilverTexture.colorSpace = THREE.SRGBColorSpace;
-          cachedBotSilverTexture.flipY = false;
-        }
 
         const clock = new THREE.Clock();
         const materials: any[] = [];
@@ -234,32 +221,32 @@ export function GuardianBot3D({
           targetPosition: { x: 0, y: 0, z: 0 },
           currentPosition: { x: 0, y: 0, z: 0 },
           saluteProgress: 0,
-          goldTex: cachedBotGoldTexture,
-          silverTex: cachedBotSilverTexture,
+          goldTex: null,
+          silverTex: null,
           THREE,
         };
 
-        // 5. Load GLB Model Singleton
-        if (!botGltfPromise) {
+        // 5. Load Silver the Hedgehog GLB Model Singleton
+        if (!silverGltfPromise) {
           const loader = new GLTFLoader();
-          botGltfPromise = new Promise((resolve, reject) => {
+          silverGltfPromise = new Promise((resolve, reject) => {
             loader.load(
-              "/assistant/guardian-bot.glb",
+              "/assistant/silver-hedgehog.glb",
               (gltf) => {
-                cachedBotScene = gltf.scene;
+                cachedSilverScene = gltf.scene;
                 resolve(gltf.scene);
               },
               undefined,
               (err) => {
-                console.error("GLTFLoader error loading bot:", err);
-                botGltfPromise = null;
+                console.error("GLTFLoader error loading Silver the Hedgehog:", err);
+                silverGltfPromise = null;
                 reject(err);
               }
             );
           });
         }
 
-        const rawScene = cachedBotScene || (await botGltfPromise);
+        const rawScene = cachedSilverScene || (await silverGltfPromise);
         if (isDisposed) return;
 
         const clone = rawScene.clone(true);
@@ -274,35 +261,70 @@ export function GuardianBot3D({
         const sizeVec = new THREE.Vector3();
         box.getSize(sizeVec);
         const maxDim = Math.max(sizeVec.x, sizeVec.y, sizeVec.z);
-        const targetScale = 2.4 / (maxDim || 1);
+        const targetScale = 2.45 / (maxDim || 1);
         clone.scale.setScalar(targetScale);
 
-        // PBR Armor Material
+        // Enhance and tune authentic PBR materials for Silver the Hedgehog
         clone.traverse((child: any) => {
           if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+
             if (child.geometry) {
               child.geometry.computeVertexNormals();
             }
 
-            const activeTexture = isGold ? cachedBotGoldTexture : cachedBotSilverTexture;
+            const setupMat = (mat: any) => {
+              if (!mat) return;
+              mat.side = THREE.DoubleSide;
+              mat.envMapIntensity = 1.8;
 
-            const mat = new THREE.MeshPhysicalMaterial({
-              map: activeTexture,
-              color: new THREE.Color(0xffffff),
-              metalness: 0.94,
-              roughness: 0.15,
-              clearcoat: 0.85,
-              clearcoatRoughness: 0.05,
-              reflectivity: 1.0,
-              ior: 1.52,
-              side: THREE.DoubleSide,
-              envMapIntensity: 2.0,
-            });
+              // Turquoise / Cyan Psychokinesis Glow (Cuff Rings & ESP markings)
+              if (
+                mat.name?.includes("GlowStuff") ||
+                (mat.emissive && (mat.emissive.r + mat.emissive.g + mat.emissive.b) > 0.05)
+              ) {
+                mat.emissive = new THREE.Color(0x00fff5);
+                mat.emissiveIntensity = 4.5;
+                mat.roughness = 0.1;
+              } else if (mat.name?.includes("Rings")) {
+                // Polished Gold Cuff Rings
+                mat.color = new THREE.Color(0xfbbf24);
+                mat.metalness = 0.95;
+                mat.roughness = 0.15;
+              } else if (mat.name?.includes("shou_ruby")) {
+                // Boot Ruby Crystals
+                mat.color = new THREE.Color(0xf43f5e);
+                mat.metalness = 0.3;
+                mat.roughness = 0.1;
+              } else if (mat.name?.includes("shoe_tips")) {
+                // Aerodynamic Teal Hover Boot Tips
+                mat.color = new THREE.Color(0x06b6d4);
+                mat.metalness = 0.4;
+                mat.roughness = 0.2;
+              } else if (mat.name?.includes("skin")) {
+                // Silver body fur (or Champagne Super Silver when isGold)
+                mat.color = isGold ? new THREE.Color(0xfef08a) : new THREE.Color(0xe2e8f0);
+                mat.metalness = isGold ? 0.75 : 0.25;
+                mat.roughness = 0.35;
+              } else if (mat.name?.includes("Fur")) {
+                // Chest fur mane
+                mat.roughness = 0.75;
+              }
 
-            child.material = mat;
-            child.castShadow = true;
-            child.receiveShadow = true;
-            materials.push(mat);
+              if (mat.map) {
+                mat.map.colorSpace = THREE.SRGBColorSpace;
+                mat.map.needsUpdate = true;
+              }
+
+              materials.push(mat);
+            };
+
+            if (Array.isArray(child.material)) {
+              child.material.forEach(setupMat);
+            } else {
+              setupMat(child.material);
+            }
           }
         });
 
@@ -343,12 +365,12 @@ export function GuardianBot3D({
                 stateObj.targetRotation.z = idleBanking;
               }
 
-              // Warm Amber Reactor Pulse
-              coreLight.color.setHex(0xf59e0b);
-              coreSprite.material.color.setHex(0xfef08a);
-              const pulse = Math.sin(elapsed * 2.0) * 0.08 + 1.0;
-              coreSprite.scale.set(0.35 * pulse, 0.35 * pulse, 0.35 * pulse);
-              coreLight.intensity = 2.5 * pulse;
+              // Silver Psychokinesis Cyan Aura Pulse
+              coreLight.color.setHex(0x00fff5);
+              coreSprite.material.color.setHex(0xa5f3fc);
+              const pulse = Math.sin(elapsed * 2.2) * 0.1 + 1.0;
+              coreSprite.scale.set(1.3 * pulse, 1.3 * pulse, 1.3 * pulse);
+              coreLight.intensity = 3.5 * pulse;
               break;
             }
 
@@ -541,12 +563,12 @@ export function GuardianBot3D({
   };
 
   const actionLabels: Record<BotRigAction, string> = {
-    idle: "Levitating • Ready",
-    listening: "Listening intently...",
-    thinking: "Quantum 360° Scan...",
-    speaking: "Articulating response...",
-    salute: "Guardian Salute Flourish!",
-    scan: "180° Panoramic Sweep...",
+    idle: "Psychokinesis Hover • Ready",
+    listening: "Telepathic Attunement...",
+    thinking: "Psychokinetic 360° Scan...",
+    speaking: "Conversational Nod...",
+    salute: "Sonic Spin Leap Flourish!",
+    scan: "180° Telekinetic Radar Sweep...",
   };
 
   return (
@@ -562,7 +584,7 @@ export function GuardianBot3D({
         style={{ width: size, height: size }}
         onClick={handleTriggerSalute}
         className="cursor-pointer active:scale-95 transition-transform"
-        title="Golden Guardian Bot — Click for 360° Salute Flourish!"
+        title="Silver the Hedgehog — Click for Sonic Spin Leap Flourish!"
       />
 
       {/* Optional Status & Action Badge */}

@@ -362,14 +362,14 @@ export default function AssistantPage() {
         </div>
       </div>
 
-      {/* 3D Golden Guardian Bot Holo-Deck & Rig Action Stage */}
+      {/* 3D Silver the Hedgehog Holo-Deck & Rig Action Stage */}
       {showBotStage && (
-        <div className="rounded-3xl bg-gradient-to-b from-black/80 via-zinc-950/90 to-black/90 border border-amber-500/30 p-5 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="rounded-3xl bg-gradient-to-b from-black/80 via-zinc-950/90 to-black/90 border border-cyan-500/30 p-5 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-white/10 pb-3 mb-3">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                Golden Guardian Bot — Kinetic 3D Avatar
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">
+                Silver the Hedgehog — Complete Rig 3D Avatar
               </span>
             </div>
             <div className="flex items-center gap-2 text-[11px] text-zinc-400">
@@ -409,11 +409,11 @@ export default function AssistantPage() {
                   }}
                   className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                     (botActionOverride || currentOrbState) === "idle"
-                      ? "bg-amber-500/20 border-amber-500 text-amber-300 font-semibold"
+                      ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 font-semibold"
                       : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
                   }`}
                 >
-                  🛡️ Hover (Idle)
+                  🛡️ Psychokinesis (Idle)
                 </button>
                 <button
                   onClick={() => {
@@ -425,7 +425,7 @@ export default function AssistantPage() {
                       : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
                   }`}
                 >
-                  👂 Listen Pose
+                  👂 Telepathic Listen
                 </button>
                 <button
                   onClick={() => {
@@ -437,7 +437,7 @@ export default function AssistantPage() {
                       : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
                   }`}
                 >
-                  ⚡ Quantum Scan
+                  ⚡ Psychokinetic 360°
                 </button>
                 <button
                   onClick={() => {
@@ -466,7 +466,7 @@ export default function AssistantPage() {
                       : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
                   }`}
                 >
-                  ⚔️ 360° Salute
+                  ⚔️ Sonic Spin Leap
                 </button>
                 <button
                   onClick={() => {
@@ -478,7 +478,7 @@ export default function AssistantPage() {
                       : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
                   }`}
                 >
-                  🔄 180° Sweep
+                  🔄 180° Radar Sweep
                 </button>
               </div>
 

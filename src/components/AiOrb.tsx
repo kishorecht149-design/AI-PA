@@ -58,7 +58,7 @@ export function AiOrb({
       className={`relative inline-flex items-center gap-3 select-none ${
         onClick ? "cursor-pointer group" : ""
       } ${className}`}
-      title={`AMAHAS Golden Guardian Bot — ${stateThemes.label}`}
+      title={`AMAHAS Silver the Hedgehog — ${stateThemes.label}`}
     >
       <div
         style={{ width: pxSizes, height: pxSizes }}
@@ -74,7 +74,7 @@ export function AiOrb({
         ) : (
           <div
             style={{ width: pxSizes, height: pxSizes }}
-            className="rounded-full bg-amber-500/10 blur-md animate-pulse"
+            className="rounded-full bg-cyan-500/10 blur-md animate-pulse"
           />
         )}
       </div>
@@ -85,7 +85,7 @@ export function AiOrb({
             {stateThemes.label}
           </span>
           <span className="text-[9px] text-zinc-400 font-mono mt-0.5">
-            Golden Guardian Core
+            Silver Psychokinesis Core
           </span>
         </div>
       )}
