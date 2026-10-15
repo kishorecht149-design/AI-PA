@@ -30,6 +30,7 @@ import {
   Bell,
   Network,
   Zap,
+  Mic,
 } from "lucide-react";
 import { AmahasLogo } from "@/components/brand/AmahasLogo";
 import { useTheme } from "@/lib/themes/theme-provider";
@@ -82,6 +83,7 @@ const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
     group: "Intelligence & Hub",
     items: [
       { name: "Assistant", href: "/assistant", icon: Bot },
+      { name: "Voice AI", href: "/voice", icon: Mic },
       { name: "Integrations", href: "/integrations", icon: Layers },
       { name: "Automations", href: "/automations", icon: Workflow },
       { name: "Settings", href: "/settings", icon: Settings },
