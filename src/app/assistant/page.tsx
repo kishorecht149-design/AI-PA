@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { KNOWN_FREE_MODELS } from "@/lib/ai-gateway";
 import { AiOrb, AiOrbState } from "@/components/AiOrb";
+import { GuardianBot3D, BotRigAction } from "@/components/assistant/GuardianBot3D";
 
 interface MessageItem {
   id?: string;
@@ -50,6 +51,8 @@ export default function AssistantPage() {
   const [loading, setLoading] = useState(false);
   const [memories, setMemories] = useState<any[]>([]);
   const [showMemoryDrawer, setShowMemoryDrawer] = useState(false);
+  const [showBotStage, setShowBotStage] = useState(false);
+  const [botActionOverride, setBotActionOverride] = useState<BotRigAction | null>(null);
 
   // Quick Action Menu & Task Selector
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -334,6 +337,20 @@ export default function AssistantPage() {
             {ttsEnabled ? <Volume2 className="w-4 h-4 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
           </button>
 
+          {/* 3D Guardian Bot Rig Stage Toggle */}
+          <button
+            onClick={() => setShowBotStage(!showBotStage)}
+            className={`px-3 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 transition-all ${
+              showBotStage
+                ? "bg-amber-500/20 border-amber-500/40 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.25)] font-semibold"
+                : "bg-white/5 border-white/5 text-slate-300 hover:text-white"
+            }`}
+            title="Inspect 3D Golden Guardian Bot & Rig Actions"
+          >
+            <Bot className="w-3.5 h-3.5 text-amber-400" />
+            <span>3D Body</span>
+          </button>
+
           {/* Memory Inspector Drawer Trigger */}
           <button
             onClick={() => setShowMemoryDrawer(true)}
@@ -344,6 +361,117 @@ export default function AssistantPage() {
           </button>
         </div>
       </div>
+
+      {/* 3D Golden Guardian Bot Holo-Deck & Rig Action Stage */}
+      {showBotStage && (
+        <div className="rounded-3xl bg-gradient-to-b from-black/80 via-zinc-950/90 to-black/90 border border-amber-500/30 p-5 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-white/10 pb-3 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                Golden Guardian Bot — Kinetic 3D Avatar
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+              <span>Status:</span>
+              <span className="font-semibold text-white capitalize">
+                {botActionOverride || currentOrbState}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+            {/* The 3D Canvas */}
+            <div className="relative flex items-center justify-center">
+              <GuardianBot3D
+                action={botActionOverride || (currentOrbState as BotRigAction)}
+                size={260}
+                interactiveLookAt={true}
+                showEnergyCore={true}
+                showActionBadge={true}
+              />
+            </div>
+
+            {/* Rig Action Control Deck */}
+            <div className="flex flex-col gap-2 w-full md:w-auto">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mb-1">
+                Trigger Rig Actions
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  onClick={() => setBotActionOverride("idle")}
+                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
+                    (botActionOverride || currentOrbState) === "idle"
+                      ? "bg-amber-500/20 border-amber-500 text-amber-300 font-semibold"
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                  }`}
+                >
+                  🛡️ Hover (Idle)
+                </button>
+                <button
+                  onClick={() => setBotActionOverride("listening")}
+                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
+                    (botActionOverride || currentOrbState) === "listening"
+                      ? "bg-rose-500/20 border-rose-500 text-rose-300 font-semibold"
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                  }`}
+                >
+                  👂 Listen Pose
+                </button>
+                <button
+                  onClick={() => setBotActionOverride("thinking")}
+                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
+                    (botActionOverride || currentOrbState) === "thinking"
+                      ? "bg-sky-500/20 border-sky-500 text-sky-300 font-semibold"
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                  }`}
+                >
+                  ⚡ Quantum Scan
+                </button>
+                <button
+                  onClick={() => setBotActionOverride("speaking")}
+                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
+                    (botActionOverride || currentOrbState) === "speaking"
+                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-300 font-semibold"
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                  }`}
+                >
+                  🗣️ Speaking Nod
+                </button>
+                <button
+                  onClick={() => setBotActionOverride("salute")}
+                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
+                    botActionOverride === "salute"
+                      ? "bg-yellow-500/30 border-yellow-400 text-yellow-200 font-semibold"
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                  }`}
+                >
+                  ⚔️ 360° Salute
+                </button>
+                <button
+                  onClick={() => setBotActionOverride("scan")}
+                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
+                    botActionOverride === "scan"
+                      ? "bg-purple-500/20 border-purple-500 text-purple-300 font-semibold"
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                  }`}
+                >
+                  🔄 180° Sweep
+                </button>
+              </div>
+
+              {botActionOverride && (
+                <button
+                  onClick={() => setBotActionOverride(null)}
+                  className="mt-1 px-3 py-1 rounded-lg bg-zinc-800 text-[10px] text-zinc-300 hover:bg-zinc-700 self-start"
+                >
+                  ↺ Reset to Live Auto Sync
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Conversation Stream */}
       <div className="bg-[#0b1120] rounded-2xl border border-white/5 p-4 md:p-6 h-[540px] flex flex-col justify-between overflow-hidden relative shadow-2xl">
