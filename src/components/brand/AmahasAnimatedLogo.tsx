@@ -80,7 +80,7 @@ export function AmahasAnimatedLogo({
           }}
         />
 
-        {/* Direct Client-Hydrated 3D WebGL Canvas */}
+        {/* Pure 3D WebGL Canvas Only (No 2D image swaps) */}
         {isMounted ? (
           <Amahas3DCanvas
             edition={resolvedEdition}
@@ -89,17 +89,7 @@ export function AmahasAnimatedLogo({
             enableShimmer={enableShimmer}
           />
         ) : (
-          <img
-            src={
-              isSilver
-                ? "/brand/amahas-silver-master.jpg"
-                : "/brand/amahas-gold-master.jpg"
-            }
-            alt="AMAHAS Logo"
-            width={size}
-            height={size}
-            className="w-full h-full object-contain rounded-2xl"
-          />
+          <div style={{ width: size, height: size }} />
         )}
       </div>
 

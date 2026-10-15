@@ -506,34 +506,9 @@ export function Amahas3DCanvas({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* 1. Instant Master Artwork Fallback (Guarantees zero blank screen) */}
-      <img
-        src={
-          edition === "silver"
-            ? "/brand/amahas-silver-master.jpg"
-            : "/brand/amahas-gold-master.jpg"
-        }
-        alt={`AMAHAS ${edition === "silver" ? "Silver" : "Gold"} Emblem`}
-        width={size}
-        height={size}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          opacity: is3DReady ? 0 : 1,
-          transition: "opacity 0.5s ease",
-          pointerEvents: "none",
-        }}
-        className="absolute inset-0 rounded-2xl"
-      />
-
-      {/* 2. Three.js WebGL 3D Canvas */}
+      {/* Pure Three.js WebGL 3D Canvas */}
       <div
         ref={mountRef}
-        style={{
-          opacity: is3DReady ? 1 : 0,
-          transition: "opacity 0.5s ease",
-        }}
         className="w-full h-full cursor-grab active:cursor-grabbing"
       />
     </div>
