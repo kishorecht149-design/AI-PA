@@ -53,6 +53,8 @@ export default function AssistantPage() {
   const [showMemoryDrawer, setShowMemoryDrawer] = useState(false);
   const [showBotStage, setShowBotStage] = useState(false);
   const [botActionOverride, setBotActionOverride] = useState<BotRigAction | null>(null);
+  const [autonomousAIActive, setAutonomousAIActive] = useState<boolean>(true);
+  const [aiSentienceStatus, setAiSentienceStatus] = useState<string>("Autonomous AI: Hovering in Psychic Equilibrium");
 
   // Quick Action Menu & Task Selector
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -140,6 +142,16 @@ export default function AssistantPage() {
     setMessages((prev) => [...prev, { role: "user", content: userText }]);
     setLoading(true);
 
+    // Semantic AI reaction: Silver responds directly to user queries
+    const lower = userText.toLowerCase();
+    if (/\b(hi|hello|hey|silver|greetings|morning|sup)\b/i.test(lower)) {
+      setBotActionOverride("wave");
+    } else if (/\b(power|focus|speed|run|go|psychic|force|push|defend|shield|guard)\b/i.test(lower)) {
+      setBotActionOverride("psychokinesis");
+    } else {
+      setBotActionOverride("thinking");
+    }
+
     try {
       const res = await fetch("/api/assistant", {
         method: "POST",
@@ -161,6 +173,23 @@ export default function AssistantPage() {
       if (data?.message) {
         setMessages((prev) => [...prev, data.message]);
         speakText(data.message.content);
+
+        // Auto-react to completion / victory / conversational response
+        const respText = (data.message.content || "").toLowerCase();
+        if (
+          /\b(done|completed|success|great|solved|fixed|congratulations|excellent|all set|perfect|accomplished)\b/i.test(
+            respText
+          )
+        ) {
+          setBotActionOverride("victory");
+          setTimeout(() => setBotActionOverride(null), 4000);
+        } else if (ttsEnabled) {
+          setBotActionOverride("speaking");
+          setTimeout(() => setBotActionOverride(null), 4000);
+        } else {
+          setBotActionOverride("speaking");
+          setTimeout(() => setBotActionOverride(null), 3000);
+        }
       } else if (data?.error) {
         setMessages((prev) => [
           ...prev,
@@ -169,6 +198,8 @@ export default function AssistantPage() {
             content: `Notice: ${data.error}`,
           },
         ]);
+        setBotActionOverride("defense");
+        setTimeout(() => setBotActionOverride(null), 3500);
       } else {
         setMessages((prev) => [
           ...prev,
@@ -177,6 +208,8 @@ export default function AssistantPage() {
             content: "I'm right here with you! Let's organize your tasks, explore research papers, or review today's schedule.",
           },
         ]);
+        setBotActionOverride("speaking");
+        setTimeout(() => setBotActionOverride(null), 3000);
       }
 
       // Check if tool requires user confirmation
@@ -193,6 +226,8 @@ export default function AssistantPage() {
         ...prev,
         { role: "assistant", content: `System notice: ${err.message}` },
       ]);
+      setBotActionOverride("alert");
+      setTimeout(() => setBotActionOverride(null), 3500);
     } finally {
       setLoading(false);
     }
@@ -364,132 +399,274 @@ export default function AssistantPage() {
 
       {/* 3D Silver the Hedgehog Holo-Deck & Rig Action Stage */}
       {showBotStage && (
-        <div className="rounded-3xl bg-gradient-to-b from-black/80 via-zinc-950/90 to-black/90 border border-cyan-500/30 p-5 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-white/10 pb-3 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">
-                Silver the Hedgehog — Complete Rig 3D Avatar
-              </span>
+        <div className="rounded-3xl bg-gradient-to-b from-black/90 via-zinc-950/95 to-black/95 border border-cyan-500/30 p-5 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          {/* Header & Autonomous AI Status Bar */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-white/10 pb-3 mb-4">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00fff5]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">
+                  Silver the Hedgehog — Autonomous 3D Avatar Rig
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] text-cyan-400 font-mono">
+                  135 Joints Articulated
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span>{aiSentienceStatus}</span>
+              </p>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-              <span>Status:</span>
-              <span className="font-semibold text-white capitalize">
-                {botActionOverride || currentOrbState}
-              </span>
-            </div>
-          </div>
 
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-            {/* The 3D Canvas */}
-            <div className="relative flex items-center justify-center">
-              <GuardianBot3D
-                action={botActionOverride || (currentOrbState as BotRigAction)}
-                size={260}
-                interactiveLookAt={true}
-                showEnergyCore={true}
-                showActionBadge={true}
-                onActionTriggered={(act) => {
-                  if (act === "idle" && botActionOverride === "salute") {
+            <div className="flex items-center gap-2.5 self-end md:self-auto">
+              {/* Autonomous AI Toggle Button */}
+              <button
+                onClick={() => {
+                  setAutonomousAIActive(!autonomousAIActive);
+                  if (!autonomousAIActive) {
                     setBotActionOverride(null);
                   }
                 }}
-              />
-            </div>
+                className={`px-3 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 transition-all font-mono ${
+                  autonomousAIActive
+                    ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-200 shadow-[0_0_12px_rgba(6,182,212,0.25)] font-semibold"
+                    : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white"
+                }`}
+                title="Toggle Silver's Autonomous Sentience Loop"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${autonomousAIActive ? "text-cyan-400 animate-spin" : "text-zinc-500"}`} />
+                <span>Autonomous AI: {autonomousAIActive ? "ON" : "OFF"}</span>
+              </button>
 
-            {/* Rig Action Control Deck */}
-            <div className="flex flex-col gap-2 w-full md:w-auto">
-              <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mb-1">
-                Trigger Rig Actions
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  onClick={() => {
-                    setBotActionOverride("idle");
-                  }}
-                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
-                    (botActionOverride || currentOrbState) === "idle"
-                      ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 font-semibold"
-                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
-                  }`}
-                >
-                  🛡️ Psychokinesis (Idle)
-                </button>
-                <button
-                  onClick={() => {
-                    setBotActionOverride("listening");
-                  }}
-                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
-                    (botActionOverride || currentOrbState) === "listening"
-                      ? "bg-rose-500/20 border-rose-500 text-rose-300 font-semibold"
-                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
-                  }`}
-                >
-                  👂 Telepathic Listen
-                </button>
-                <button
-                  onClick={() => {
-                    setBotActionOverride("thinking");
-                  }}
-                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
-                    (botActionOverride || currentOrbState) === "thinking"
-                      ? "bg-sky-500/20 border-sky-500 text-sky-300 font-semibold"
-                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
-                  }`}
-                >
-                  ⚡ Psychokinetic 360°
-                </button>
-                <button
-                  onClick={() => {
-                    setBotActionOverride("speaking");
-                  }}
-                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
-                    (botActionOverride || currentOrbState) === "speaking"
-                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-300 font-semibold"
-                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
-                  }`}
-                >
-                  🗣️ Speaking Nod
-                </button>
-                <button
-                  onClick={() => {
-                    if (botActionOverride === "salute") {
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-[11px] text-zinc-300">
+                <span className="text-zinc-400">Action:</span>
+                <span className="font-semibold text-white capitalize">
+                  {botActionOverride || currentOrbState}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row items-center justify-center gap-6">
+            {/* The 3D Canvas Viewport */}
+            <div className="relative flex flex-col items-center justify-center">
+              <div className="relative">
+                <GuardianBot3D
+                  action={botActionOverride || (currentOrbState as BotRigAction)}
+                  size={270}
+                  interactiveLookAt={true}
+                  showEnergyCore={true}
+                  showActionBadge={true}
+                  autonomousAI={autonomousAIActive && !botActionOverride}
+                  onActionTriggered={(act) => {
+                    if (act === "idle" && botActionOverride === "salute") {
                       setBotActionOverride(null);
-                      setTimeout(() => setBotActionOverride("salute"), 20);
-                    } else {
-                      setBotActionOverride("salute");
                     }
                   }}
-                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
-                    botActionOverride === "salute"
-                      ? "bg-yellow-500/30 border-yellow-400 text-yellow-200 font-semibold"
-                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
-                  }`}
-                >
-                  ⚔️ Sonic Spin Leap
-                </button>
-                <button
-                  onClick={() => {
-                    setBotActionOverride("scan");
+                  onAiStateChange={(status) => {
+                    setAiSentienceStatus(status);
                   }}
-                  className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
-                    botActionOverride === "scan"
-                      ? "bg-purple-500/20 border-purple-500 text-purple-300 font-semibold"
-                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
-                  }`}
-                >
-                  🔄 180° Radar Sweep
-                </button>
+                />
               </div>
 
-              {botActionOverride && (
-                <button
-                  onClick={() => setBotActionOverride(null)}
-                  className="mt-1 px-3 py-1 rounded-lg bg-zinc-800 text-[10px] text-zinc-300 hover:bg-zinc-700 self-start"
-                >
-                  ↺ Reset to Live Auto Sync
-                </button>
-              )}
+              {/* Tactile Zones Click Prompt */}
+              <div className="mt-2 text-center">
+                <p className="text-[10px] text-zinc-400 font-mono flex items-center gap-1 justify-center">
+                  <span>💡 Tip: Click Silver directly in 3D to trigger tactile reactions!</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Controllable Action & Emote Holo-Deck */}
+            <div className="flex flex-col gap-4 w-full lg:max-w-md">
+              {/* Tactical Actions Section */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-cyan-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-cyan-400" />
+                    Tactical Rig Actions
+                  </span>
+                  <span className="text-[9px] text-zinc-400 font-mono">Real-time Skeletal Kinematics</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <button
+                    onClick={() => setBotActionOverride("psychokinesis")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      (botActionOverride || currentOrbState) === "psychokinesis"
+                        ? "bg-cyan-500/25 border-cyan-400 text-cyan-200 font-semibold shadow-[0_0_12px_rgba(0,255,245,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold flex items-center gap-1">
+                      <span>🛡️ ESP Force Push</span>
+                    </div>
+                    <span className="text-[9px] text-cyan-300/80 block mt-0.5">Signature psychokinesis</span>
+                  </button>
+
+                  <button
+                    onClick={() => setBotActionOverride("thinking")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      (botActionOverride || currentOrbState) === "thinking"
+                        ? "bg-sky-500/25 border-sky-400 text-sky-200 font-semibold shadow-[0_0_12px_rgba(56,189,248,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">⚡ Quantum 360°</div>
+                    <span className="text-[9px] text-sky-300/80 block mt-0.5">Continuous orbital scan</span>
+                  </button>
+
+                  <button
+                    onClick={() => setBotActionOverride("scan")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      botActionOverride === "scan"
+                        ? "bg-purple-500/25 border-purple-400 text-purple-200 font-semibold shadow-[0_0_12px_rgba(168,85,247,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">🔄 Radar Sweep</div>
+                    <span className="text-[9px] text-purple-300/80 block mt-0.5">180° telekinetic sweep</span>
+                  </button>
+
+                  <button
+                    onClick={() => setBotActionOverride("defense")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      botActionOverride === "defense"
+                        ? "bg-violet-500/25 border-violet-400 text-violet-200 font-semibold shadow-[0_0_12px_rgba(192,132,252,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">🔮 Kinetic Barrier</div>
+                    <span className="text-[9px] text-violet-300/80 block mt-0.5">Force-field shield</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (botActionOverride === "salute") {
+                        setBotActionOverride(null);
+                        setTimeout(() => setBotActionOverride("salute"), 20);
+                      } else {
+                        setBotActionOverride("salute");
+                      }
+                    }}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      botActionOverride === "salute"
+                        ? "bg-yellow-500/30 border-yellow-400 text-yellow-200 font-semibold shadow-[0_0_12px_rgba(251,191,36,0.35)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">⚔️ Sonic Spin Leap</div>
+                    <span className="text-[9px] text-yellow-300/80 block mt-0.5">360° corkscrew flourish</span>
+                  </button>
+
+                  <button
+                    onClick={() => setBotActionOverride("idle")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      (botActionOverride || currentOrbState) === "idle"
+                        ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 font-semibold"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">✨ Psychic Hover</div>
+                    <span className="text-[9px] text-zinc-400 block mt-0.5">Resting equilibrium</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Expressive Emotes Section */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-amber-400 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    Expressive Emotes
+                  </span>
+                  <span className="text-[9px] text-zinc-400 font-mono">Emotional Sentience</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <button
+                    onClick={() => setBotActionOverride("wave")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      botActionOverride === "wave"
+                        ? "bg-sky-500/25 border-sky-400 text-sky-200 font-semibold shadow-[0_0_12px_rgba(56,189,248,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">👋 Friendly Wave</div>
+                    <span className="text-[9px] text-sky-300/80 block mt-0.5">Greeting gesture</span>
+                  </button>
+
+                  <button
+                    onClick={() => setBotActionOverride("victory")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      botActionOverride === "victory"
+                        ? "bg-yellow-500/25 border-yellow-400 text-yellow-200 font-semibold shadow-[0_0_12px_rgba(250,204,21,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">🏆 Victory Pose</div>
+                    <span className="text-[9px] text-yellow-300/80 block mt-0.5">Super Silver triumph</span>
+                  </button>
+
+                  <button
+                    onClick={() => setBotActionOverride("listening")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      (botActionOverride || currentOrbState) === "listening"
+                        ? "bg-rose-500/25 border-rose-400 text-rose-200 font-semibold shadow-[0_0_12px_rgba(244,63,94,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">👂 Telepathy Listen</div>
+                    <span className="text-[9px] text-rose-300/80 block mt-0.5">Curious head tilt bow</span>
+                  </button>
+
+                  <button
+                    onClick={() => setBotActionOverride("speaking")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      (botActionOverride || currentOrbState) === "speaking"
+                        ? "bg-emerald-500/25 border-emerald-400 text-emerald-200 font-semibold shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">🗣️ Speech Nod</div>
+                    <span className="text-[9px] text-emerald-300/80 block mt-0.5">Harmonic conversation</span>
+                  </button>
+
+                  <button
+                    onClick={() => setBotActionOverride("alert")}
+                    className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                      botActionOverride === "alert"
+                        ? "bg-orange-500/25 border-orange-400 text-orange-200 font-semibold shadow-[0_0_12px_rgba(249,115,22,0.3)]"
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="font-semibold">🚨 Alert Stance</div>
+                    <span className="text-[9px] text-orange-300/80 block mt-0.5">Vigilant scan posture</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setBotActionOverride(null);
+                      setAutonomousAIActive(true);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-gradient-to-r from-zinc-800 to-zinc-900 border border-white/10 text-zinc-300 hover:text-white hover:border-cyan-500/40 text-left transition-all"
+                  >
+                    <div className="font-semibold flex items-center gap-1 text-cyan-300">
+                      <span>↺ Auto AI Sync</span>
+                    </div>
+                    <span className="text-[9px] text-zinc-400 block mt-0.5">Resume living AI sentience</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tactile Hit Zones Guide */}
+              <div className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/5 text-[10px] text-zinc-400 font-mono">
+                <span className="text-zinc-300 font-semibold block mb-1">🎯 Tactile Click Hotspots:</span>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                  <div>• <span className="text-sky-300 font-semibold">Head / Quills</span>: Telepathic Scan</div>
+                  <div>• <span className="text-cyan-300 font-semibold">Cuff Rings</span>: ESP Force Push</div>
+                  <div>• <span className="text-amber-300 font-semibold">Torso / Chest</span>: Wave / Victory</div>
+                  <div>• <span className="text-yellow-300 font-semibold">Hover Boots</span>: Sonic Corkscrew</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
