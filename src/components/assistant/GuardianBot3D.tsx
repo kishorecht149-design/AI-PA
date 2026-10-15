@@ -35,12 +35,18 @@ export function GuardianBot3D({
   onActionTriggered,
 }: GuardianBot3DProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const [currentAction, setCurrentAction] = useState<BotRigAction>(action);
+  const [currentActionState, setCurrentActionState] = useState<BotRigAction>(action);
+  const actionRef = useRef<BotRigAction>(action);
   const mousePos = useRef({ x: 0, y: 0, isHovered: false });
 
-  // Sync external action prop
+  // Synchronously update actionRef on every render so the RAF loop immediately sees the new action
+  actionRef.current = action;
+
   useEffect(() => {
-    setCurrentAction(action);
+    setCurrentActionState(action);
+    if (sceneState.current && action === "salute") {
+      sceneState.current.saluteProgress = 0;
+    }
   }, [action]);
 
   const themeContext = useTheme();
@@ -67,7 +73,7 @@ export function GuardianBot3D({
     currentRotation: { x: number; y: number; z: number };
     targetPosition: { x: number; y: number; z: number };
     currentPosition: { x: number; y: number; z: number };
-    saluteProgress: number; // 0 to 1
+    saluteProgress: number;
     goldTex: any;
     silverTex: any;
     THREE: any;
@@ -161,7 +167,7 @@ export function GuardianBot3D({
         coreLight.position.set(0, 0.25, 0.5);
         scene.add(coreLight);
 
-        // Bot Groups Hierarchy (enables multi-axis rig actions)
+        // Bot Groups Hierarchy
         const botGroup = new THREE.Group();
         const torsoGroup = new THREE.Group();
         botGroup.add(torsoGroup);
@@ -174,8 +180,8 @@ export function GuardianBot3D({
         const ctx = coreCanvas.getContext("2d")!;
         const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
         grad.addColorStop(0, "rgba(255, 255, 255, 1)");
-        grad.addColorStop(0.2, isGold ? "rgba(254, 240, 138, 0.95)" : "rgba(56, 189, 248, 0.95)");
-        grad.addColorStop(0.5, isGold ? "rgba(245, 158, 11, 0.5)" : "rgba(2, 132, 199, 0.5)");
+        grad.addColorStop(0.2, "rgba(254, 240, 138, 0.95)");
+        grad.addColorStop(0.5, "rgba(245, 158, 11, 0.5)");
         grad.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 128, 128);
@@ -306,26 +312,28 @@ export function GuardianBot3D({
           torsoGroup.add(coreSprite);
         }
 
-        // 6. Animation & Rig Actions Loop
+        // 6. Animation & Kinetic Rig Actions Loop
         const animate = () => {
           if (isDisposed) return;
           animId = requestAnimationFrame(animate);
           const elapsed = clock.getElapsedTime();
           const stateObj = sceneState.current!;
 
-          // === RIG ACTIONS CONTROLLER ===
-          switch (currentAction) {
+          // READ DIRECTLY FROM actionRef TO PREVENT STALE CLOSURES
+          const activeAction = actionRef.current;
+
+          // === DYNAMIC RIG ACTIONS ENGINE ===
+          switch (activeAction) {
             case "idle": {
               // Action 1: Anti-Gravity Levitation Hover
-              stateObj.targetPosition.y = Math.sin(elapsed * 1.8) * 0.09;
-              stateObj.targetPosition.x = Math.sin(elapsed * 0.9) * 0.03;
+              stateObj.targetPosition.x = Math.sin(elapsed * 0.9) * 0.04;
+              stateObj.targetPosition.y = Math.sin(elapsed * 1.8) * 0.1;
+              stateObj.targetPosition.z = 0;
 
-              // Precession banking tilt
-              const idleBanking = Math.sin(elapsed * 1.1) * 0.04;
+              const idleBanking = Math.sin(elapsed * 1.2) * 0.04;
               const idlePitch = Math.cos(elapsed * 1.4) * 0.03;
 
               if (mousePos.current.isHovered && interactiveLookAt) {
-                // Look-at cursor tracking
                 stateObj.targetRotation.x = -mousePos.current.y * 0.35 + idlePitch;
                 stateObj.targetRotation.y = mousePos.current.x * 0.55;
                 stateObj.targetRotation.z = -mousePos.current.x * 0.1 + idleBanking;
@@ -335,96 +343,133 @@ export function GuardianBot3D({
                 stateObj.targetRotation.z = idleBanking;
               }
 
-              // Pulse core breathing
-              const pulse = Math.sin(elapsed * 2.0) * 0.05 + 1.0;
+              // Warm Amber Reactor Pulse
+              coreLight.color.setHex(0xf59e0b);
+              coreSprite.material.color.setHex(0xfef08a);
+              const pulse = Math.sin(elapsed * 2.0) * 0.08 + 1.0;
               coreSprite.scale.set(0.35 * pulse, 0.35 * pulse, 0.35 * pulse);
               coreLight.intensity = 2.5 * pulse;
               break;
             }
 
             case "listening": {
-              // Action 2: Attentive Ear-Drop & Forward Pose
-              stateObj.targetPosition.y = -0.05 + Math.sin(elapsed * 3.0) * 0.03;
-              stateObj.targetPosition.z = 0.2; // leans closer to user
-              stateObj.targetRotation.x = -0.16; // attentive forward lean
-              stateObj.targetRotation.y = mousePos.current.x * 0.35;
-              stateObj.targetRotation.z = 0;
+              // Action 2: Dramatic Attentive Forward Lean & Close Hover
+              stateObj.targetPosition.x = 0;
+              stateObj.targetPosition.y = -0.12 + Math.sin(elapsed * 2.8) * 0.03;
+              stateObj.targetPosition.z = 0.45; // Leans way closer towards the user
 
-              // Acoustic ripple pulse
-              const micPulse = Math.sin(elapsed * 8.0) * 0.15 + 1.1;
-              coreSprite.scale.set(0.42 * micPulse, 0.42 * micPulse, 0.42 * micPulse);
-              coreLight.intensity = 4.5 * micPulse;
+              // Curious robot head tilt & forward bow
+              stateObj.targetRotation.x = -0.32; // Deep forward pitch
+              stateObj.targetRotation.y = mousePos.current.x * 0.35;
+              stateObj.targetRotation.z = 0.18; // Side head tilt
+
+              // Radiant Rose/Red Acoustic Pulse
+              coreLight.color.setHex(0xf43f5e);
+              coreSprite.material.color.setHex(0xfb7185);
+              const micPulse = Math.sin(elapsed * 8.0) * 0.2 + 1.2;
+              coreSprite.scale.set(0.44 * micPulse, 0.44 * micPulse, 0.44 * micPulse);
+              coreLight.intensity = 5.5 * micPulse;
               break;
             }
 
             case "thinking": {
-              // Action 3: Elevated Quantum Scan & Continuous Orbit
-              stateObj.targetPosition.y = 0.14 + Math.sin(elapsed * 2.5) * 0.06;
+              // Action 3: Elevated Quantum Ascend & Continuous 360 Scan Orbit
+              stateObj.targetPosition.x = 0;
+              stateObj.targetPosition.y = 0.28 + Math.sin(elapsed * 2.2) * 0.06; // Ascends higher
               stateObj.targetPosition.z = 0;
-              stateObj.targetRotation.x = Math.cos(elapsed * 2.0) * 0.06;
-              // Smooth 360 scanning rotation
-              stateObj.targetRotation.y += 0.025;
+
+              // Continuous 360 degree orbital rotation around Y axis
+              stateObj.currentRotation.y += 0.038;
+              stateObj.targetRotation.y = stateObj.currentRotation.y;
+              stateObj.targetRotation.x = Math.sin(elapsed * 2.5) * 0.1;
               stateObj.targetRotation.z = Math.sin(elapsed * 1.5) * 0.08;
 
-              // High frequency quantum core flare
-              const scanPulse = Math.sin(elapsed * 12.0) * 0.25 + 1.2;
-              coreSprite.scale.set(0.48 * scanPulse, 0.48 * scanPulse, 0.48 * scanPulse);
-              coreLight.intensity = 5.5 * scanPulse;
+              // Brilliant Quantum Blue Core Reactor
+              coreLight.color.setHex(0x38bdf8);
+              coreSprite.material.color.setHex(0x7dd3fc);
+              const scanPulse = Math.sin(elapsed * 14.0) * 0.3 + 1.3;
+              coreSprite.scale.set(0.5 * scanPulse, 0.5 * scanPulse, 0.5 * scanPulse);
+              coreLight.intensity = 7.0 * scanPulse;
 
-              // Scanning beam vertical traverse
-              shineLight.position.y = Math.sin(elapsed * 4.0) * 1.5;
+              // Vertical laser scan beam
+              shineLight.position.y = Math.sin(elapsed * 5.0) * 1.6;
               break;
             }
 
             case "speaking": {
-              // Action 4: Speech Harmonics & Articulated Gesture Nodding
-              stateObj.targetPosition.y = Math.sin(elapsed * 7.0) * 0.05;
-              stateObj.targetPosition.x = Math.sin(elapsed * 3.5) * 0.03;
-              stateObj.targetRotation.x = -0.05 + Math.sin(elapsed * 6.5) * 0.07; // nodding
-              stateObj.targetRotation.y = mousePos.current.x * 0.4 + Math.cos(elapsed * 4.0) * 0.06;
-              stateObj.targetRotation.z = Math.sin(elapsed * 3.0) * 0.04;
+              // Action 4: Speech Harmonics, Rhythmic Gestures & Rapid Nodding
+              stateObj.targetPosition.x = Math.sin(elapsed * 4.0) * 0.04;
+              stateObj.targetPosition.y = Math.sin(elapsed * 8.0) * 0.08;
+              stateObj.targetPosition.z = 0.15;
 
-              // Voice harmonic flash
-              const voicePulse = Math.sin(elapsed * 14.0) * 0.2 + 1.15;
-              coreSprite.scale.set(0.38 * voicePulse, 0.38 * voicePulse, 0.38 * voicePulse);
-              coreLight.intensity = 4.0 * voicePulse;
+              // Clear head nodding up and down
+              stateObj.targetRotation.x = -0.12 + Math.sin(elapsed * 8.0) * 0.2;
+              stateObj.targetRotation.y = Math.sin(elapsed * 4.0) * 0.25;
+              stateObj.targetRotation.z = Math.sin(elapsed * 3.0) * 0.06;
+
+              // Emerald Green Voice Harmonics
+              coreLight.color.setHex(0x10b981);
+              coreSprite.material.color.setHex(0x6ee7b7);
+              const voicePulse = Math.sin(elapsed * 16.0) * 0.25 + 1.25;
+              coreSprite.scale.set(0.42 * voicePulse, 0.42 * voicePulse, 0.42 * voicePulse);
+              coreLight.intensity = 5.0 * voicePulse;
               break;
             }
 
             case "salute": {
-              // Action 5: Interactive 360 Spin Salute Flourish
-              stateObj.saluteProgress += 0.04;
+              // Action 5: Interactive 360 Corkscrew Leap Flourish
+              stateObj.saluteProgress += 0.035;
               if (stateObj.saluteProgress >= 1) {
                 stateObj.saluteProgress = 0;
-                setCurrentAction("idle");
+                actionRef.current = "idle";
+                setCurrentActionState("idle");
                 if (onActionTriggered) onActionTriggered("idle");
               }
               const p = stateObj.saluteProgress;
-              stateObj.targetPosition.y = Math.sin(p * Math.PI) * 0.35; // leap
-              stateObj.targetRotation.y += 0.25; // corkscrew spin
-              stateObj.targetRotation.x = Math.sin(p * Math.PI * 2) * 0.2;
-              coreLight.intensity = 6.0;
+              stateObj.targetPosition.y = Math.sin(p * Math.PI) * 0.45; // High leap
+              stateObj.currentRotation.y += 0.28; // Rapid 360 spin
+              stateObj.targetRotation.y = stateObj.currentRotation.y;
+              stateObj.targetRotation.x = Math.sin(p * Math.PI * 2) * 0.22;
+              stateObj.targetRotation.z = 0;
+
+              // Brilliant Golden Solar Flare
+              coreLight.color.setHex(0xfbbf24);
+              coreSprite.material.color.setHex(0xffffff);
+              coreLight.intensity = 12.0;
               break;
             }
 
             case "scan": {
-              // Action 6: 180 Panoramic Scan
+              // Action 6: 180 Panoramic Surveillance Sweep
+              stateObj.targetPosition.x = 0;
               stateObj.targetPosition.y = Math.sin(elapsed * 1.5) * 0.04;
-              stateObj.targetRotation.x = 0;
-              stateObj.targetRotation.y = Math.sin(elapsed * 1.8) * 0.75;
-              stateObj.targetRotation.z = 0;
+              stateObj.targetPosition.z = 0;
+
+              // Sweeps widely from -60 deg to +60 deg
+              stateObj.targetRotation.x = -0.05;
+              stateObj.targetRotation.y = Math.sin(elapsed * 2.2) * 1.1;
+              stateObj.targetRotation.z = -Math.cos(elapsed * 2.2) * 0.15; // Banks into turn
+
+              // High-tech Purple Sensor Core
+              coreLight.color.setHex(0xa855f7);
+              coreSprite.material.color.setHex(0xd8b4fe);
+              coreLight.intensity = 5.5;
               break;
             }
           }
 
-          // Spring Lerp Damping for Smooth Physical Motion
-          stateObj.currentPosition.x += (stateObj.targetPosition.x - stateObj.currentPosition.x) * 0.08;
-          stateObj.currentPosition.y += (stateObj.targetPosition.y - stateObj.currentPosition.y) * 0.08;
-          stateObj.currentPosition.z += (stateObj.targetPosition.z - stateObj.currentPosition.z) * 0.08;
+          // Responsive spring lerp damping with shortest angular difference for Y rotation
+          stateObj.currentPosition.x += (stateObj.targetPosition.x - stateObj.currentPosition.x) * 0.12;
+          stateObj.currentPosition.y += (stateObj.targetPosition.y - stateObj.currentPosition.y) * 0.12;
+          stateObj.currentPosition.z += (stateObj.targetPosition.z - stateObj.currentPosition.z) * 0.12;
 
-          stateObj.currentRotation.x += (stateObj.targetRotation.x - stateObj.currentRotation.x) * 0.08;
-          stateObj.currentRotation.y += (stateObj.targetRotation.y - stateObj.currentRotation.y) * 0.08;
-          stateObj.currentRotation.z += (stateObj.targetRotation.z - stateObj.currentRotation.z) * 0.08;
+          stateObj.currentRotation.x += (stateObj.targetRotation.x - stateObj.currentRotation.x) * 0.12;
+          const dy = Math.atan2(
+            Math.sin(stateObj.targetRotation.y - stateObj.currentRotation.y),
+            Math.cos(stateObj.targetRotation.y - stateObj.currentRotation.y)
+          );
+          stateObj.currentRotation.y += dy * 0.12;
+          stateObj.currentRotation.z += (stateObj.targetRotation.z - stateObj.currentRotation.z) * 0.12;
 
           botGroup.position.set(
             stateObj.currentPosition.x,
@@ -486,18 +531,22 @@ export function GuardianBot3D({
   };
 
   const handleTriggerSalute = () => {
-    setCurrentAction("salute");
+    actionRef.current = "salute";
+    setCurrentActionState("salute");
+    if (sceneState.current) {
+      sceneState.current.saluteProgress = 0;
+    }
     if (onActionTriggered) onActionTriggered("salute");
     if (onClick) onClick();
   };
 
-  const actionLabels = {
+  const actionLabels: Record<BotRigAction, string> = {
     idle: "Levitating • Ready",
     listening: "Listening intently...",
-    thinking: "Reasoning & Analyzing...",
+    thinking: "Quantum 360° Scan...",
     speaking: "Articulating response...",
-    salute: "Guardian Salute!",
-    scan: "Scanning environment...",
+    salute: "Guardian Salute Flourish!",
+    scan: "180° Panoramic Sweep...",
   };
 
   return (
@@ -521,16 +570,20 @@ export function GuardianBot3D({
         <div className="mt-2 flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 border border-white/10 backdrop-blur-md text-[11px] text-zinc-300">
           <span
             className={`w-2 h-2 rounded-full ${
-              currentAction === "listening"
+              currentActionState === "listening"
                 ? "bg-rose-500 animate-ping"
-                : currentAction === "thinking"
+                : currentActionState === "thinking"
                 ? "bg-sky-400 animate-spin"
-                : currentAction === "speaking"
+                : currentActionState === "speaking"
                 ? "bg-emerald-400 animate-pulse"
+                : currentActionState === "salute"
+                ? "bg-amber-400 animate-bounce"
+                : currentActionState === "scan"
+                ? "bg-purple-400"
                 : "bg-amber-400"
             }`}
           />
-          <span className="font-semibold">{actionLabels[currentAction]}</span>
+          <span className="font-semibold">{actionLabels[currentActionState]}</span>
         </div>
       )}
     </div>

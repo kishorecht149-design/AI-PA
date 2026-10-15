@@ -389,6 +389,11 @@ export default function AssistantPage() {
                 interactiveLookAt={true}
                 showEnergyCore={true}
                 showActionBadge={true}
+                onActionTriggered={(act) => {
+                  if (act === "idle" && botActionOverride === "salute") {
+                    setBotActionOverride(null);
+                  }
+                }}
               />
             </div>
 
@@ -399,7 +404,9 @@ export default function AssistantPage() {
               </span>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <button
-                  onClick={() => setBotActionOverride("idle")}
+                  onClick={() => {
+                    setBotActionOverride("idle");
+                  }}
                   className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                     (botActionOverride || currentOrbState) === "idle"
                       ? "bg-amber-500/20 border-amber-500 text-amber-300 font-semibold"
@@ -409,7 +416,9 @@ export default function AssistantPage() {
                   🛡️ Hover (Idle)
                 </button>
                 <button
-                  onClick={() => setBotActionOverride("listening")}
+                  onClick={() => {
+                    setBotActionOverride("listening");
+                  }}
                   className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                     (botActionOverride || currentOrbState) === "listening"
                       ? "bg-rose-500/20 border-rose-500 text-rose-300 font-semibold"
@@ -419,7 +428,9 @@ export default function AssistantPage() {
                   👂 Listen Pose
                 </button>
                 <button
-                  onClick={() => setBotActionOverride("thinking")}
+                  onClick={() => {
+                    setBotActionOverride("thinking");
+                  }}
                   className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                     (botActionOverride || currentOrbState) === "thinking"
                       ? "bg-sky-500/20 border-sky-500 text-sky-300 font-semibold"
@@ -429,7 +440,9 @@ export default function AssistantPage() {
                   ⚡ Quantum Scan
                 </button>
                 <button
-                  onClick={() => setBotActionOverride("speaking")}
+                  onClick={() => {
+                    setBotActionOverride("speaking");
+                  }}
                   className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                     (botActionOverride || currentOrbState) === "speaking"
                       ? "bg-emerald-500/20 border-emerald-500 text-emerald-300 font-semibold"
@@ -439,7 +452,14 @@ export default function AssistantPage() {
                   🗣️ Speaking Nod
                 </button>
                 <button
-                  onClick={() => setBotActionOverride("salute")}
+                  onClick={() => {
+                    if (botActionOverride === "salute") {
+                      setBotActionOverride(null);
+                      setTimeout(() => setBotActionOverride("salute"), 20);
+                    } else {
+                      setBotActionOverride("salute");
+                    }
+                  }}
                   className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                     botActionOverride === "salute"
                       ? "bg-yellow-500/30 border-yellow-400 text-yellow-200 font-semibold"
@@ -449,7 +469,9 @@ export default function AssistantPage() {
                   ⚔️ 360° Salute
                 </button>
                 <button
-                  onClick={() => setBotActionOverride("scan")}
+                  onClick={() => {
+                    setBotActionOverride("scan");
+                  }}
                   className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                     botActionOverride === "scan"
                       ? "bg-purple-500/20 border-purple-500 text-purple-300 font-semibold"
