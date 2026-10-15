@@ -9,33 +9,19 @@ import {
   Palette,
   Sun,
   Moon,
-  Eye,
   Sliders,
-  Maximize2,
-  ArrowRight,
-  RotateCw,
-  Zap,
   Award,
 } from "lucide-react";
 import { AmahasAnimatedLogo } from "@/components/brand/AmahasAnimatedLogo";
 import { useTheme } from "@/lib/themes/theme-provider";
 
 export default function BrandPreviewApprovalPage() {
-  const { theme, setTheme, allThemes } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [selectedEdition, setSelectedEdition] = useState<"auto" | "silver" | "gold">("auto");
   const [interactive3D, setInteractive3D] = useState(true);
   const [enableShimmer, setEnableShimmer] = useState(true);
-  const [activeSize, setActiveSize] = useState<number>(320);
+  const [activeSize, setActiveSize] = useState<number>(300);
   const [isApproved, setIsApproved] = useState(false);
-
-  // Quick toggle between a light theme and dark theme for live test
-  const handleTestLightTheme = () => {
-    setTheme("daylight");
-  };
-
-  const handleTestDarkTheme = () => {
-    setTheme("pure-black");
-  };
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] p-4 md:p-8 space-y-8 max-w-7xl mx-auto transition-colors duration-300">
@@ -52,11 +38,11 @@ export default function BrandPreviewApprovalPage() {
                   AMAHAS Official 3D Animated Logo — Approval Deck
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-950/60 border border-emerald-800 text-emerald-400">
-                  God-Level Effects Active
+                  Zero-Spill Precision Masking
                 </span>
               </div>
               <p className="text-xs md:text-sm text-[var(--text-secondary)] mt-0.5">
-                Transparent high-res emblem with anisotropic specular glint sweeps, interactive cursor reflection tracking, and synaptic constellation pulses.
+                Hardware-accelerated anisotropic sheen sweep, cursor reflection tracking, and neural constellation pulses (strictly confined to emblem pixels).
               </p>
             </div>
           </div>
@@ -64,9 +50,8 @@ export default function BrandPreviewApprovalPage() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Theme Quick Switchers */}
           <button
-            onClick={handleTestLightTheme}
+            onClick={() => setTheme("daylight")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs font-semibold shadow-sm hover:bg-zinc-100 transition-all"
             title="Switch to Daylight Light Theme to test Edition B (Gold)"
           >
@@ -75,7 +60,7 @@ export default function BrandPreviewApprovalPage() {
           </button>
 
           <button
-            onClick={handleTestDarkTheme}
+            onClick={() => setTheme("pure-black")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-black text-white text-xs font-semibold shadow-sm hover:bg-zinc-900 transition-all"
             title="Switch to Pure Black Dark Theme to test Edition A (Silver)"
           >
@@ -89,12 +74,12 @@ export default function BrandPreviewApprovalPage() {
               className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-black font-bold text-xs tracking-wider uppercase transition-all shadow-xl hover:scale-105 active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4 fill-black text-yellow-400" />
-              <span>Approve Logo</span>
+              <span>Approve Logo for Production</span>
             </button>
           ) : (
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-950/80 border border-emerald-700 text-emerald-300 font-bold text-xs">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Approved by Kishore!</span>
+              <span>Approved by Kishore! Ready to Deploy</span>
             </div>
           )}
         </div>
@@ -106,7 +91,7 @@ export default function BrandPreviewApprovalPage() {
         <div className="lg:col-span-7 flex flex-col items-center">
           <div className="w-full rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-8 shadow-2xl flex flex-col items-center justify-center relative overflow-hidden min-h-[460px]">
             {/* The Animated Emblem */}
-            <div className="relative z-10 py-4">
+            <div className="relative z-10 py-4 flex items-center justify-center">
               <AmahasAnimatedLogo
                 edition={selectedEdition}
                 size={activeSize}
@@ -119,7 +104,7 @@ export default function BrandPreviewApprovalPage() {
             {/* Hint Badge */}
             <div className="mt-4 px-3.5 py-1.5 rounded-full bg-[var(--bg-primary)]/80 backdrop-blur-md border border-[var(--border)] text-[11px] text-[var(--text-secondary)] z-10 flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Move mouse over emblem for 3D tilt & dynamic specular light reflection</span>
+              <span>Hover & move mouse over emblem to interact with 3D reflection</span>
             </div>
           </div>
 
@@ -190,24 +175,24 @@ export default function BrandPreviewApprovalPage() {
           </div>
         </div>
 
-        {/* Right Stage: Side-by-Side Light vs Dark Simulator (Cols 5) */}
+        {/* Right Stage: Side-by-Side Light vs Dark Theme Simulator (Cols 5) */}
         <div className="lg:col-span-5 flex flex-col gap-4">
           {/* Light Theme Simulation Card */}
-          <div className="rounded-3xl bg-white border border-zinc-200 p-5 shadow-xl flex flex-col gap-3 text-zinc-900">
+          <div className="rounded-3xl bg-white border border-zinc-200 p-5 shadow-xl flex flex-col gap-3 text-zinc-900 overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
                 <Sun className="w-3.5 h-3.5 text-amber-600" />
-                Light & White Theme Behavior (Edition B)
+                Light & White Theme (Edition B: Champagne Gold)
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold font-mono">
-                Auto Selected
+                Auto
               </span>
             </div>
             <p className="text-[11px] text-zinc-600 leading-relaxed">
-              When user selects Daylight, Pure White, Sea Breeze, or any light theme, the emblem renders in <strong>Champagne Gold & Azure</strong> with rich warm luster against white backgrounds.
+              When user selects a light or white theme, AMAHAS renders in <strong>Champagne Gold & Azure</strong> with zero black halo on white cards.
             </p>
 
-            <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center">
+            <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center overflow-hidden">
               <AmahasAnimatedLogo
                 edition="gold"
                 size={140}
@@ -219,21 +204,21 @@ export default function BrandPreviewApprovalPage() {
           </div>
 
           {/* Dark Theme Simulation Card */}
-          <div className="rounded-3xl bg-[#08080a] border border-zinc-800 p-5 shadow-xl flex flex-col gap-3 text-white">
+          <div className="rounded-3xl bg-[#08080a] border border-zinc-800 p-5 shadow-xl flex flex-col gap-3 text-white overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
                 <Moon className="w-3.5 h-3.5 text-sky-400" />
-                Dark & Black Theme Behavior (Edition A)
+                Dark & Black Theme (Edition A: Platinum Titanium)
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-950 text-sky-300 font-semibold font-mono">
-                Auto Selected
+                Auto
               </span>
             </div>
             <p className="text-[11px] text-zinc-400 leading-relaxed">
-              When user is on Pure Black, Carbon, Midnight Cyber, or any dark theme, the emblem renders in <strong>Platinum Titanium Silver</strong> with chrome caustics against OLED black.
+              When user selects Pure Black or any dark theme, AMAHAS renders in <strong>Platinum Titanium Silver</strong> with chrome caustics against OLED black.
             </p>
 
-            <div className="p-4 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center">
+            <div className="p-4 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center overflow-hidden">
               <AmahasAnimatedLogo
                 edition="silver"
                 size={140}
@@ -244,14 +229,14 @@ export default function BrandPreviewApprovalPage() {
             </div>
           </div>
 
-          {/* Navbar & Sidebar Small Scaled Lockups */}
+          {/* Navigation Scale Lockups */}
           <div className="rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-5 shadow-xl flex flex-col gap-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
               <Sliders className="w-4 h-4 text-sky-400" />
               Scale & Navigation Lockups
             </h4>
 
-            {/* Sidebar 36px Lockup */}
+            {/* Sidebar 36px */}
             <div className="p-3 rounded-2xl bg-[var(--bg-primary)] border border-[var(--border)] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <AmahasAnimatedLogo size={36} interactive3D={false} />
@@ -263,7 +248,7 @@ export default function BrandPreviewApprovalPage() {
               <span className="text-[10px] font-mono text-[var(--text-muted)]">36px Sidebar</span>
             </div>
 
-            {/* Header 28px Lockup */}
+            {/* Header 28px */}
             <div className="p-3 rounded-2xl bg-[var(--bg-primary)] border border-[var(--border)] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AmahasAnimatedLogo size={28} interactive3D={false} />
