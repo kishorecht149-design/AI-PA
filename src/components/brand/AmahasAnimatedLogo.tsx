@@ -23,7 +23,6 @@ export function AmahasAnimatedLogo({
   onClick,
 }: AmahasAnimatedLogoProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Read site theme context
   const themeContext = useTheme();
@@ -38,106 +37,59 @@ export function AmahasAnimatedLogo({
 
   // 3D Parallax & Gyroscopic state
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const [isHovered, setIsHovered] = useState(false);
 
   const targetTilt = useRef({ x: 0, y: 0 });
   const currentTilt = useRef({ x: 0, y: 0 });
 
-  // Metallic color parameters
+  // Metallic styling parameters
   const palette = isSilver
     ? {
-        specularBase: "rgba(255, 255, 255, 0.95)",
-        specularFringe: "rgba(200, 240, 255, 0.4)",
-        spotlightColor: "rgba(255, 255, 255, 0.7)",
-        nodePulse: "#a5f3fc",
-        synapseLine: "rgba(165, 243, 252, 0.45)",
-        textGradient: "from-zinc-100 via-zinc-300 to-zinc-500",
-        ambientGlow: "rgba(56, 189, 248, 0.15)",
         emblemSrc: "/brand/preview/silver-clean.png",
+        ambientGlow: "rgba(56, 189, 248, 0.18)",
+        specularGrad:
+          "linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0.85) 48%, rgba(220,240,255,1) 50%, rgba(255,255,255,0.85) 52%, rgba(255,255,255,0.15) 65%, transparent 80%)",
+        nodePulse: "#38bdf8",
+        synapseLine: "rgba(56, 189, 248, 0.4)",
+        textGradient: "from-zinc-100 via-zinc-300 to-zinc-500",
       }
     : {
-        specularBase: "rgba(255, 248, 200, 0.95)",
-        specularFringe: "rgba(250, 204, 21, 0.45)",
-        spotlightColor: "rgba(255, 235, 150, 0.75)",
-        nodePulse: "#fde047",
-        synapseLine: "rgba(250, 204, 21, 0.5)",
-        textGradient: "from-amber-300 via-yellow-500 to-amber-700",
-        ambientGlow: "rgba(234, 179, 8, 0.18)",
         emblemSrc: "/brand/preview/gold-clean.png",
+        ambientGlow: "rgba(234, 179, 8, 0.22)",
+        specularGrad:
+          "linear-gradient(115deg, transparent 20%, rgba(254,240,138,0.2) 35%, rgba(255,245,180,0.9) 48%, rgba(255,255,255,1) 50%, rgba(254,240,138,0.9) 52%, rgba(250,204,21,0.2) 65%, transparent 80%)",
+        nodePulse: "#facc15",
+        synapseLine: "rgba(234, 179, 8, 0.45)",
+        textGradient: "from-amber-400 via-yellow-500 to-amber-700",
       };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !interactive3D) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const nx = (e.clientX - rect.left) / rect.width;
-    const ny = (e.clientY - rect.top) / rect.height;
+    const nx = (e.clientX - rect.left) / rect.width - 0.5;
+    const ny = (e.clientY - rect.top) / rect.height - 0.5;
 
-    setMousePos({ x: nx, y: ny });
-
-    if (interactive3D) {
-      targetTilt.current = {
-        x: -(ny - 0.5) * 16,
-        y: (nx - 0.5) * 16,
-      };
-    }
+    targetTilt.current = {
+      x: -ny * 16,
+      y: nx * 16,
+    };
   };
 
   const handleMouseEnter = () => setIsHovered(true);
   const handleMouseLeave = () => {
     setIsHovered(false);
     targetTilt.current = { x: 0, y: 0 };
-    setMousePos({ x: 0.5, y: 0.5 });
   };
 
-  // Hardware-accelerated Canvas animation with STRICT source-atop pixel masking
+  // Smooth lerp loop for 3D spring tilt
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
     let animId: number;
-    let sweepPhase = 0;
-    const img = new Image();
-    img.src = palette.emblemSrc;
 
-    let isImageLoaded = false;
-    img.onload = () => {
-      isImageLoaded = true;
-    };
-
-    // Synaptic constellation nodes inside the head silhouette
-    const nodes = [
-      { x: 0.65, y: 0.24, r: 2.8 },
-      { x: 0.74, y: 0.35, r: 2.4 },
-      { x: 0.61, y: 0.43, r: 3.0 },
-      { x: 0.77, y: 0.53, r: 2.2 },
-      { x: 0.63, y: 0.62, r: 2.6 },
-      { x: 0.35, y: 0.43, r: 2.5 },
-    ];
-
-    const links = [
-      { source: 0, target: 1, pulse: 0 },
-      { source: 1, target: 2, pulse: 0.3 },
-      { source: 2, target: 3, pulse: 0.6 },
-      { source: 3, target: 4, pulse: 0.8 },
-      { source: 0, target: 2, pulse: 0.5 },
-      { source: 5, target: 2, pulse: 0.2 },
-    ];
-
-    const render = () => {
-      const w = canvas.width;
-      const h = canvas.height;
-
-      // 1. Clear entire canvas completely (100% transparent outside emblem)
-      ctx.clearRect(0, 0, w, h);
-
-      // Lerp 3D tilt
+    const loop = () => {
       currentTilt.current.x += (targetTilt.current.x - currentTilt.current.x) * 0.1;
       currentTilt.current.y += (targetTilt.current.y - currentTilt.current.y) * 0.1;
 
-      // Gentle breathing tilt when idle
+      // Gentle continuous ambient breathing tilt when idle
       if (!isHovered && interactive3D) {
         const time = Date.now() * 0.0012;
         currentTilt.current.x = Math.sin(time) * 3.5;
@@ -145,141 +97,26 @@ export function AmahasAnimatedLogo({
       }
 
       setTilt({ ...currentTilt.current });
-
-      if (isImageLoaded) {
-        // 2. Draw master 3D emblem
-        ctx.globalCompositeOperation = "source-over";
-        ctx.drawImage(img, 0, 0, w, h);
-
-        if (enableShimmer) {
-          sweepPhase = (sweepPhase + 0.006) % 1; // smooth metallic specular sweep
-
-          // 3. STRICT SOURCE-ATOP COMPOSITING
-          // Any specular highlight drawn will ONLY affect non-transparent emblem pixels!
-          // Absolutely ZERO spill outside the logo silhouette!
-          ctx.globalCompositeOperation = "source-atop";
-
-          // Moving Anisotropic Specular Gleam across the metallic chamfers
-          const sweepX = (sweepPhase * 2.6 - 0.8) * w;
-          const sweepY = (sweepPhase * 2.6 - 0.8) * h;
-          const beamWidth = w * 0.22;
-
-          const sweepGrad = ctx.createLinearGradient(
-            sweepX - beamWidth,
-            sweepY - beamWidth,
-            sweepX + beamWidth,
-            sweepY + beamWidth
-          );
-          sweepGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
-          sweepGrad.addColorStop(0.35, "rgba(255, 255, 255, 0)");
-          sweepGrad.addColorStop(0.48, palette.specularFringe);
-          sweepGrad.addColorStop(0.5, palette.specularBase);
-          sweepGrad.addColorStop(0.52, palette.specularFringe);
-          sweepGrad.addColorStop(0.65, "rgba(255, 255, 255, 0)");
-          sweepGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
-
-          ctx.fillStyle = sweepGrad;
-          ctx.fillRect(0, 0, w, h);
-
-          // Interactive Cursor Specular Spotlight (Tracks mouse position on metal)
-          if (isHovered) {
-            const spotX = mousePos.x * w;
-            const spotY = mousePos.y * h;
-            const spotRad = ctx.createRadialGradient(
-              spotX,
-              spotY,
-              0,
-              spotX,
-              spotY,
-              w * 0.35
-            );
-            spotRad.addColorStop(0, palette.spotlightColor);
-            spotRad.addColorStop(0.4, "rgba(255, 255, 255, 0.2)");
-            spotRad.addColorStop(1, "transparent");
-
-            ctx.fillStyle = spotRad;
-            ctx.fillRect(0, 0, w, h);
-          }
-
-          // 4. Reset Composite to draw Constellation Synaptic Signals on top
-          ctx.globalCompositeOperation = "source-over";
-          const t = Date.now() * 0.003;
-
-          // Draw fine synaptic tether lines
-          links.forEach((l) => {
-            const s = nodes[l.source];
-            const tg = nodes[l.target];
-            const x1 = s.x * w;
-            const y1 = s.y * h;
-            const x2 = tg.x * w;
-            const y2 = tg.y * h;
-
-            ctx.strokeStyle = palette.synapseLine;
-            ctx.lineWidth = 1.0;
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
-
-            // Traveling Synaptic Signal Photon
-            l.pulse = (l.pulse + 0.012) % 1;
-            const px = x1 + (x2 - x1) * l.pulse;
-            const py = y1 + (y2 - y1) * l.pulse;
-
-            ctx.fillStyle = "#ffffff";
-            ctx.shadowColor = palette.nodePulse;
-            ctx.shadowBlur = 6;
-            ctx.beginPath();
-            ctx.arc(px, py, 1.8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0; // reset
-          });
-
-          // Draw Celestial Constellation Spheres
-          nodes.forEach((n, idx) => {
-            const nx = n.x * w;
-            const ny = n.y * h;
-            const pulseIntensity = 0.6 + Math.sin(t + idx * 1.5) * 0.4;
-
-            // Faint breathing glow
-            const nodeGlow = ctx.createRadialGradient(
-              nx,
-              ny,
-              n.r * 0.5,
-              nx,
-              ny,
-              n.r * 2.5
-            );
-            nodeGlow.addColorStop(0, palette.nodePulse);
-            nodeGlow.addColorStop(1, "transparent");
-
-            ctx.fillStyle = nodeGlow;
-            ctx.globalAlpha = pulseIntensity * 0.8;
-            ctx.beginPath();
-            ctx.arc(nx, ny, n.r * 2.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Solid core bead
-            ctx.fillStyle = isSilver ? "#ffffff" : "#fef08a";
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            ctx.arc(nx, ny, n.r, 0, Math.PI * 2);
-            ctx.fill();
-          });
-        }
-      }
-
-      animId = requestAnimationFrame(render);
+      animId = requestAnimationFrame(loop);
     };
 
-    animId = requestAnimationFrame(render);
+    animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, [isSilver, isHovered, enableShimmer, interactive3D, mousePos, palette]);
+  }, [isHovered, interactive3D]);
+
+  // Normalised constellation nodes inside the head silhouette
+  const constellationNodes = [
+    { cx: "65%", cy: "24%", r: 3 },
+    { cx: "74%", cy: "35%", r: 2.5 },
+    { cx: "61%", cy: "43%", r: 3.2 },
+    { cx: "77%", cy: "53%", r: 2.5 },
+    { cx: "63%", cy: "62%", r: 2.8 },
+  ];
 
   return (
     <div
       onClick={onClick}
-      className={`inline-flex flex-col items-center select-none overflow-visible ${className}`}
+      className={`inline-flex flex-col items-center select-none ${className}`}
     >
       {/* 3D Perspective Stage Container */}
       <div
@@ -294,46 +131,123 @@ export function AmahasAnimatedLogo({
         }}
         className="relative flex items-center justify-center cursor-pointer group"
       >
-        {/* Tilting 3D Canvas Wrapper */}
+        {/* Tilting 3D Emblem Wrapper */}
         <div
           style={{
             transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale3d(1, 1, 1)`,
             transition: isHovered
               ? "none"
-              : "transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)",
+              : "transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)",
             transformStyle: "preserve-3d",
             width: size,
             height: size,
           }}
           className="relative flex items-center justify-center"
         >
-          {/* Subtle Ambient Backlit Floor Shadow */}
+          {/* Subtle Backlit Ambient Depth Halo */}
           <div
             style={{
-              width: size * 0.7,
-              height: size * 0.7,
-              filter: "blur(22px)",
+              width: size * 0.8,
+              height: size * 0.8,
+              filter: "blur(20px)",
               background: palette.ambientGlow,
             }}
             className="absolute rounded-full pointer-events-none"
           />
 
-          {/* Master 60 FPS Metallic Canvas (Strictly clipped with source-atop) */}
-          <canvas
-            ref={canvasRef}
-            width={size * 2}
-            height={size * 2}
+          {/* 1. MASTER 3D BEVELED EMBLEM IMAGE (100% Reliable, Always Visible) */}
+          <img
+            src={palette.emblemSrc}
+            alt={`AMAHAS ${isSilver ? "Platinum Titanium" : "Champagne Gold"} Emblem`}
+            width={size}
+            height={size}
             style={{
               width: size,
               height: size,
               transform: "translateZ(15px)",
               filter: isHovered
-                ? "brightness(1.06) contrast(1.04)"
+                ? "brightness(1.06) contrast(1.03)"
                 : "brightness(1.0) contrast(1.0)",
               transition: "filter 0.3s ease",
             }}
-            className="block pointer-events-none"
+            className="object-contain pointer-events-none drop-shadow-[0_12px_24px_rgba(0,0,0,0.5)]"
           />
+
+          {/* 2. SPECULAR SHEEN SWEEP (STRICTLY CLIPPED TO LOGO SILHOUETTE VIA MASK) */}
+          {enableShimmer && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: size,
+                height: size,
+                transform: "translateZ(25px)",
+                maskImage: `url(${palette.emblemSrc})`,
+                WebkitMaskImage: `url(${palette.emblemSrc})`,
+                maskSize: "contain",
+                WebkitMaskSize: "contain",
+                maskRepeat: "no-repeat",
+                WebkitMaskRepeat: "no-repeat",
+                maskPosition: "center",
+                WebkitMaskPosition: "center",
+                pointerEvents: "none",
+                overflow: "hidden",
+                mixBlendMode: isSilver ? "color-dodge" : "screen",
+              }}
+            >
+              {/* The Gleam Bar (Guaranteed NEVER to bleed outside the mask!) */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "-50%",
+                  left: "-50%",
+                  width: "200%",
+                  height: "200%",
+                  background: palette.specularGrad,
+                  transform: "rotate(-35deg)",
+                  animation: "metallic-sheen-sweep 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+          )}
+
+          {/* 3. CONSTELLATION SYNAPSE SIGNALS (Subtle micro-pulses inside head silhouette) */}
+          {enableShimmer && (
+            <svg
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: size,
+                height: size,
+                transform: "translateZ(30px)",
+                pointerEvents: "none",
+              }}
+              viewBox="0 0 100 100"
+            >
+              {/* Synaptic links */}
+              <line x1="65" y1="24" x2="74" y2="35" stroke={palette.synapseLine} strokeWidth="0.8" />
+              <line x1="74" y1="35" x2="61" y2="43" stroke={palette.synapseLine} strokeWidth="0.8" />
+              <line x1="61" y1="43" x2="77" y2="53" stroke={palette.synapseLine} strokeWidth="0.8" />
+              <line x1="77" y1="53" x2="63" y2="62" stroke={palette.synapseLine} strokeWidth="0.8" />
+
+              {/* Orbital Nodes with subtle breathing animation */}
+              {constellationNodes.map((n, i) => (
+                <circle
+                  key={i}
+                  cx={n.cx}
+                  cy={n.cy}
+                  r={n.r * 0.4}
+                  fill={palette.nodePulse}
+                  opacity="0.9"
+                  className="animate-pulse"
+                  style={{ animationDuration: `${2 + i * 0.5}s` }}
+                />
+              ))}
+            </svg>
+          )}
         </div>
       </div>
 
@@ -350,6 +264,28 @@ export function AmahasAnimatedLogo({
           </span>
         </div>
       )}
+
+      {/* CSS Keyframes for Metallic Sheen Sweep */}
+      <style jsx>{`
+        @keyframes metallic-sheen-sweep {
+          0% {
+            transform: rotate(-35deg) translateY(-140%);
+            opacity: 0;
+          }
+          15% {
+            opacity: 1;
+          }
+          45% {
+            transform: rotate(-35deg) translateY(140%);
+            opacity: 1;
+          }
+          46%,
+          100% {
+            transform: rotate(-35deg) translateY(140%);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
