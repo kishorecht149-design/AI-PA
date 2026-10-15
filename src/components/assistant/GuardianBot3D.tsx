@@ -257,12 +257,16 @@ export function GuardianBot3D({
         box.getCenter(center);
         clone.position.sub(center);
 
-        // Scale to fit viewport
+        // Scale to fit viewport with smart framing (portrait for compact orbs, full body for stage)
         const sizeVec = new THREE.Vector3();
         box.getSize(sizeVec);
         const maxDim = Math.max(sizeVec.x, sizeVec.y, sizeVec.z);
-        const targetScale = 2.45 / (maxDim || 1);
+        const isSmall = size < 90;
+        const targetScale = (isSmall ? 3.9 : 2.45) / (maxDim || 1);
         clone.scale.setScalar(targetScale);
+        if (isSmall) {
+          clone.position.y -= 0.38;
+        }
 
         // Enhance and tune authentic PBR materials for Silver the Hedgehog
         clone.traverse((child: any) => {
