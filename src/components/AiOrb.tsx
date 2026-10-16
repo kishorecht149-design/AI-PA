@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { GuardianBot3D, BotRigAction } from "./assistant/GuardianBot3D";
+import { AmahAsAvatar } from "./assistant/AmahAsAvatar";
+import { AssistantState } from "./assistant/types";
 
 export type AiOrbState = "idle" | "listening" | "thinking" | "speaking";
 
@@ -58,18 +59,18 @@ export function AiOrb({
       className={`relative inline-flex items-center gap-3 select-none ${
         onClick ? "cursor-pointer group" : ""
       } ${className}`}
-      title={`AMAHAS Silver the Hedgehog — ${stateThemes.label}`}
+      title={`AMAHAS 3D AI Assistant — ${stateThemes.label}`}
     >
       <div
         style={{ width: pxSizes, height: pxSizes }}
         className="relative flex items-center justify-center shrink-0"
       >
         {isMounted ? (
-          <GuardianBot3D
-            action={state as BotRigAction}
+          <AmahAsAvatar
+            state={state as AssistantState}
             size={pxSizes}
             interactiveLookAt={true}
-            showEnergyCore={true}
+            showFloorShadow={false}
           />
         ) : (
           <div
@@ -85,7 +86,7 @@ export function AiOrb({
             {stateThemes.label}
           </span>
           <span className="text-[9px] text-zinc-400 font-mono mt-0.5">
-            Silver Psychokinesis Core
+            AMAHAS Assistant Core
           </span>
         </div>
       )}
