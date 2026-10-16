@@ -149,6 +149,7 @@ export function FloatingAssistantDock() {
           args: JSON.parse(call.function?.arguments || "{}"),
           callId: call.id,
           idempotencyKey: `dock_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          confirmationToken: data.confirmationToken,
         });
       }
     } catch (err: any) {
@@ -186,6 +187,7 @@ export function FloatingAssistantDock() {
             toolName: toolToRun.toolName,
             args: toolToRun.args,
             idempotencyKey: toolToRun.idempotencyKey,
+            confirmationToken: toolToRun.confirmationToken,
           },
         }),
       });

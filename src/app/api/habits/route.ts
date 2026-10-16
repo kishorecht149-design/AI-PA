@@ -132,8 +132,15 @@ export async function DELETE(req: Request) {
     const habitId = searchParams.get("id");
     if (!habitId) return NextResponse.json({ error: "Habit ID is required" }, { status: 400 });
 
+    const habit = await prisma.habit.findFirst({
+      where: { id: habitId, userId },
+    });
+    if (!habit) {
+      return NextResponse.json({ error: "Habit not found or unauthorized" }, { status: 404 });
+    }
+
     await prisma.habitLog.deleteMany({ where: { habitId } });
-    await prisma.habit.deleteMany({ where: { id: habitId, userId } });
+    await prisma.habit.delete({ where: { id: habitId } });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

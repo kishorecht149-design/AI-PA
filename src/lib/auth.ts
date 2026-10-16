@@ -37,11 +37,22 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 /**
  * Resolves the authenticated user ID for API routes.
  * 1. Checks active session cookie if user logged in.
- * 2. Seamlessly falls back to the primary user record (Kishore) so the Personal Assistant works reliably without blocking on cookies.
+ * 2. In production (or whenever explicit dev bypass is not enabled), returns null.
+ * 3. In local development ONLY when AMAHAS_DEV_AUTH_BYPASS === "true", falls back to primary user.
  */
 export async function resolveApiUserId(): Promise<string | null> {
   const user = await getSessionUser();
   if (user) return user.id;
+
+  // Strict security guard: Never fall back in production
+  const isDevBypass =
+    process.env.NODE_ENV === "development" &&
+    process.env.AMAHAS_DEV_AUTH_BYPASS === "true";
+
+  if (!isDevBypass) {
+    return null;
+  }
+
   let primaryUser = await prisma.user.findFirst({ select: { id: true } });
   if (!primaryUser) {
     try {

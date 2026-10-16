@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
 import { triggerAutomations } from "@/lib/automations-engine";
 import { eventBus } from "@/lib/events";
+import { createOutboxEventOperation, drainOutboxEvents } from "@/lib/outbox";
 
 export async function GET(req: Request) {
   try {
@@ -55,31 +56,62 @@ export async function POST(req: Request) {
 
     const isCompleted = body.completed !== undefined ? Boolean(body.completed) : true;
 
-    // 1. Create persistent FocusSession record
-    const session = await prisma.focusSession.create({
-      data: {
-        userId,
-        taskId: taskId || null,
-        courseId: courseId || null,
-        topicId: topicId || null,
-        targetMinutes: target,
-        actualMinutes: actual,
-        startTime: start,
-        endTime: now,
-        completed: isCompleted,
-        reflectionNotes: reflectionNotes || null,
-        energyRating: energyRating ? Number(energyRating) : 4,
-        distractionCount: distractionCount ? Number(distractionCount) : 0,
-      },
-    });
+    let session;
 
     if (isCompleted) {
-      eventBus.publish("focus_session.completed", session.id, userId, {
-        sessionId: session.id,
-        durationMinutes: actual,
-        taskId: taskId || undefined,
-        courseId: courseId || undefined,
-        topicId: topicId || undefined,
+      const outboxOp = createOutboxEventOperation({
+        eventType: "focus_session.completed",
+        entityId: "session_pending",
+        userId,
+        payload: {
+          durationMinutes: actual,
+          taskId: taskId || undefined,
+          courseId: courseId || undefined,
+          topicId: topicId || undefined,
+        },
+      });
+
+      const [createdSession] = await prisma.$transaction([
+        prisma.focusSession.create({
+          data: {
+            userId,
+            taskId: taskId || null,
+            courseId: courseId || null,
+            topicId: topicId || null,
+            targetMinutes: target,
+            actualMinutes: actual,
+            startTime: start,
+            endTime: now,
+            completed: true,
+            reflectionNotes: reflectionNotes || null,
+            energyRating: energyRating ? Number(energyRating) : 4,
+            distractionCount: distractionCount ? Number(distractionCount) : 0,
+          },
+        }),
+        prisma.auditEvent.create({
+          data: outboxOp.createData,
+        }),
+      ]);
+      session = createdSession;
+
+      // Drain outbox to deliver event with atomic concurrency locking
+      drainOutboxEvents().catch(() => {});
+    } else {
+      session = await prisma.focusSession.create({
+        data: {
+          userId,
+          taskId: taskId || null,
+          courseId: courseId || null,
+          topicId: topicId || null,
+          targetMinutes: target,
+          actualMinutes: actual,
+          startTime: start,
+          endTime: now,
+          completed: false,
+          reflectionNotes: reflectionNotes || null,
+          energyRating: energyRating ? Number(energyRating) : 4,
+          distractionCount: distractionCount ? Number(distractionCount) : 0,
+        },
       });
     }
 

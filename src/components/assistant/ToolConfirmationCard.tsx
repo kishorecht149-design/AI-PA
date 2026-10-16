@@ -21,6 +21,7 @@ export interface PendingTool {
   args: Record<string, any>;
   callId?: string;
   idempotencyKey?: string;
+  confirmationToken?: string;
 }
 
 interface ToolConfirmationCardProps {

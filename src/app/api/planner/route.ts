@@ -101,8 +101,8 @@ export async function POST(req: Request) {
     });
 
     if (taskId) {
-      await prisma.task.update({
-        where: { id: taskId },
+      await prisma.task.updateMany({
+        where: { id: taskId, userId },
         data: {
           scheduledDate: start,
           status: "IN_PROGRESS",
@@ -198,8 +198,8 @@ export async function DELETE(req: Request) {
     if (block) {
       // If linked to a task, return task to unscheduled state
       if (block.taskId) {
-        await prisma.task.update({
-          where: { id: block.taskId },
+        await prisma.task.updateMany({
+          where: { id: block.taskId, userId },
           data: { scheduledDate: null },
         });
       }

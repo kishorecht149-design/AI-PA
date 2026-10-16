@@ -4,6 +4,10 @@ import { resolveApiUserId } from "@/lib/auth";
 import { aiGateway } from "@/lib/ai-gateway";
 import { ALL_TOOLS, APPLICATION_TOOLS, validateToolArgs } from "@/lib/tools-registry";
 import { inferBehaviorFromContent } from "@/components/assistant/behaviorDirector";
+import {
+  generateConfirmationToken,
+  verifyAndConsumeConfirmationToken,
+} from "@/lib/tool-confirmation";
 
 // Sliding window rate limiter to protect ₹0 infrastructure tier
 const rateLimitMap = new Map<string, number[]>();
@@ -71,7 +75,7 @@ export async function POST(req: Request) {
 
     // Direct confirmation execution of a mutating tool with strict validation and idempotency
     if (executeConfirmedTool) {
-      const { toolName, args, idempotencyKey } = executeConfirmedTool;
+      const { toolName, args, idempotencyKey, confirmationToken } = executeConfirmedTool;
       const toolDef = ALL_TOOLS[toolName] || APPLICATION_TOOLS[toolName];
       if (!toolDef) {
         return NextResponse.json({ error: `Unknown tool '${toolName}'` }, { status: 400 });
@@ -86,7 +90,29 @@ export async function POST(req: Request) {
         );
       }
 
-      // 2. Prevent duplicate execution when a request is retried
+      // 2. Cryptographic confirmation verification for destructive operations
+      if (toolDef.isDestructive) {
+        if (!confirmationToken) {
+          return NextResponse.json(
+            { error: "Cryptographic confirmation token is required for destructive operations." },
+            { status: 403 }
+          );
+        }
+        const verifyResult = await verifyAndConsumeConfirmationToken({
+          token: confirmationToken,
+          userId,
+          toolName,
+          args,
+        });
+        if (!verifyResult.valid) {
+          return NextResponse.json(
+            { error: `Confirmation verification failed: ${verifyResult.reason}` },
+            { status: 403 }
+          );
+        }
+      }
+
+      // 3. Prevent duplicate execution when a request is retried
       if (idempotencyKey) {
         const existingAudit = await prisma.auditEvent.findFirst({
           where: {
@@ -106,10 +132,10 @@ export async function POST(req: Request) {
         }
       }
 
-      // 3. Execute tool
+      // 4. Execute tool
       const toolResult = await toolDef.execute(userId, args);
 
-      // 4. Record audit event for verification & idempotency
+      // 5. Record audit event for verification & idempotency
       if (idempotencyKey) {
         await prisma.auditEvent.create({
           data: {
@@ -134,9 +160,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get or create conversation
+    // Get or create conversation (enforcing userId ownership)
     let conv = conversationId
-      ? await prisma.conversation.findUnique({ where: { id: conversationId } })
+      ? await prisma.conversation.findFirst({ where: { id: conversationId, userId } })
       : await prisma.conversation.findFirst({ where: { userId }, orderBy: { updatedAt: "desc" } });
 
     if (!conv) {
@@ -194,11 +220,27 @@ export async function POST(req: Request) {
       },
     });
 
+    let confirmationToken: string | undefined = undefined;
+    if (response.requiresConfirmation && response.toolCalls && response.toolCalls.length > 0) {
+      const firstCall = response.toolCalls[0];
+      const toolName = firstCall.function?.name;
+      let args = {};
+      try {
+        args = JSON.parse(firstCall.function?.arguments || "{}");
+      } catch {}
+      confirmationToken = generateConfirmationToken({
+        userId,
+        toolName,
+        args,
+      });
+    }
+
     return NextResponse.json({
       message: savedMsg,
       behaviorCommand,
       toolCalls: response.toolCalls,
       requiresConfirmation: response.requiresConfirmation,
+      confirmationToken,
       executedToolResults: response.executedToolResults,
     });
   } catch (err: any) {

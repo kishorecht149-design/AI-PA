@@ -61,9 +61,10 @@ class AmahasEventBus {
     entityId: string,
     userId: string,
     payload: T,
-    correlationId?: string
+    correlationId?: string,
+    explicitEventId?: string
   ): Promise<AmahasEvent<T>> {
-    const eventId = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const eventId = explicitEventId || `evt_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
     const event: AmahasEvent<T> = {
       eventId,
@@ -76,10 +77,30 @@ class AmahasEventBus {
       payload,
     };
 
-    // Deduplication check
+    // In-memory L1 deduplication check
     if (this.processedEventIds.has(eventId)) {
       return event;
     }
+
+    // Persistent L2 deduplication check against database audit logs
+    try {
+      if (prisma.auditEvent) {
+        const existingEvent = await prisma.auditEvent.findFirst({
+          where: {
+            userId,
+            action: `EVENT_DISPATCHED:${eventId}`,
+          },
+          select: { id: true },
+        });
+        if (existingEvent) {
+          this.processedEventIds.add(eventId);
+          return event;
+        }
+      }
+    } catch {
+      // If DB check encounters offline pooler, proceed with in-memory isolation
+    }
+
     this.processedEventIds.add(eventId);
 
     // Keep processed IDs memory bounded to last 5,000 events
@@ -94,9 +115,10 @@ class AmahasEventBus {
         await prisma.auditEvent.create({
           data: {
             userId,
-            action: `EVENT:${type}`,
+            action: `EVENT_DISPATCHED:${eventId}`,
             detailsJson: JSON.stringify({
               eventId: event.eventId,
+              eventType: type,
               entityId: event.entityId,
               correlationId: event.correlationId,
               timestamp: event.timestamp,

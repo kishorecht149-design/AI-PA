@@ -1,6 +1,17 @@
 import crypto from "crypto";
 
-const SECRET = process.env.AUTH_SECRET || "amahas-secure-local-dev-secret-string-min32";
+export function getAuthSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "CRITICAL SECURITY CONFIGURATION ERROR: AUTH_SECRET is missing or < 32 characters in production. Authentication failing closed."
+      );
+    }
+    return "amahas-secure-local-dev-secret-string-min32";
+  }
+  return secret;
+}
 
 export interface SessionUser {
   id: string;
@@ -40,6 +51,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
  * Create a signed session token.
  */
 export function createSessionToken(payload: SessionUser): string {
+  const secret = getAuthSecret();
   const data = Buffer.from(
     JSON.stringify({
       ...payload,
@@ -47,7 +59,7 @@ export function createSessionToken(payload: SessionUser): string {
     })
   ).toString("base64url");
   const signature = crypto
-    .createHmac("sha256", SECRET)
+    .createHmac("sha256", secret)
     .update(data)
     .digest("base64url");
   return `${data}.${signature}`;
@@ -58,10 +70,11 @@ export function createSessionToken(payload: SessionUser): string {
  */
 export function verifySessionToken(token: string): SessionUser | null {
   try {
+    const secret = getAuthSecret();
     const [data, signature] = token.split(".");
     if (!data || !signature) return null;
     const expectedSig = crypto
-      .createHmac("sha256", SECRET)
+      .createHmac("sha256", secret)
       .update(data)
       .digest("base64url");
     if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {

@@ -74,6 +74,17 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const { id, title, contentMarkdown, isPinned } = body;
 
+    if (!id) {
+      return NextResponse.json({ error: "Note ID required" }, { status: 400 });
+    }
+
+    const existing = await prisma.note.findFirst({
+      where: { id, userId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Note not found or unauthorized" }, { status: 404 });
+    }
+
     const updated = await prisma.note.update({
       where: { id },
       data: {

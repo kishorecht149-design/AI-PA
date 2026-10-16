@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
 import { eventBus } from "@/lib/events";
+import { createOutboxEventOperation, drainOutboxEvents } from "@/lib/outbox";
 
 export async function GET(req: Request) {
   try {
@@ -82,27 +83,56 @@ export async function PATCH(req: Request) {
     });
     if (!existing) return NextResponse.json({ error: "Task not found" }, { status: 404 });
 
-    const updated = await prisma.task.update({
-      where: { id },
-      data: {
-        ...(status && {
-          status,
-          completedAt: status === "COMPLETED" ? new Date() : null,
-        }),
-        ...(typeof actualMinutes === "number" && { actualMinutes }),
-        ...(priority && { priority }),
-        ...(title && { title: title.trim() }),
-        ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
-      },
-    });
+    let updated;
+    const isNewCompletion = status === "COMPLETED" && existing.status !== "COMPLETED";
 
-    // Publish event facts to event bus for cross-module synchronization
-    if (status === "COMPLETED" && existing.status !== "COMPLETED") {
-      eventBus.publish("task.completed", id, userId, {
-        taskId: id,
-        projectId: existing.projectId || updated.projectId,
+    if (isNewCompletion) {
+      const outboxOp = createOutboxEventOperation({
+        eventType: "task.completed",
+        entityId: id,
+        userId,
+        payload: {
+          taskId: id,
+          projectId: existing.projectId,
+        },
+      });
+
+      const [updatedTask] = await prisma.$transaction([
+        prisma.task.update({
+          where: { id },
+          data: {
+            status: "COMPLETED",
+            completedAt: new Date(),
+            ...(typeof actualMinutes === "number" && { actualMinutes }),
+            ...(priority && { priority }),
+            ...(title && { title: title.trim() }),
+            ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+          },
+        }),
+        prisma.auditEvent.create({
+          data: outboxOp.createData,
+        }),
+      ]);
+      updated = updatedTask;
+
+      // Drain outbox to deliver event with atomic concurrency locking
+      drainOutboxEvents().catch(() => {});
+    } else {
+      updated = await prisma.task.update({
+        where: { id },
+        data: {
+          ...(status && {
+            status,
+            completedAt: status === "COMPLETED" ? new Date() : null,
+          }),
+          ...(typeof actualMinutes === "number" && { actualMinutes }),
+          ...(priority && { priority }),
+          ...(title && { title: title.trim() }),
+          ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+        },
       });
     }
+
     if (dueDate && (!existing.dueDate || new Date(dueDate).getTime() !== new Date(existing.dueDate).getTime())) {
       eventBus.publish("task.rescheduled", id, userId, {
         taskId: id,

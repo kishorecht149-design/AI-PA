@@ -96,11 +96,14 @@ export async function POST(req: Request) {
 
     const topic = await prisma.syllabusTopic.findUnique({
       where: { id: topicId },
-      include: { revisionRecords: { orderBy: { studiedAt: "desc" }, take: 1 } },
+      include: {
+        revisionRecords: { orderBy: { studiedAt: "desc" }, take: 1 },
+        unit: { include: { course: true } },
+      },
     });
 
-    if (!topic) {
-      return NextResponse.json({ error: "Topic not found" }, { status: 404 });
+    if (!topic || topic.unit?.course?.userId !== userId) {
+      return NextResponse.json({ error: "Topic not found or unauthorized" }, { status: 404 });
     }
 
     const lastRecord = topic.revisionRecords[0];

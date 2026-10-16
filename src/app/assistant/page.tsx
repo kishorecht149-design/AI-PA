@@ -54,6 +54,7 @@ interface PendingToolConfirmation {
   args: any;
   callId?: string;
   idempotencyKey?: string;
+  confirmationToken?: string;
 }
 
 const QUICK_PROMPTS = [
@@ -327,6 +328,7 @@ export default function AssistantPage() {
           args: JSON.parse(call.function?.arguments || "{}"),
           callId: call.id,
           idempotencyKey: `tool_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          confirmationToken: data.confirmationToken,
         });
       }
     } catch (err: any) {
@@ -385,6 +387,7 @@ export default function AssistantPage() {
             toolName: toolToRun.toolName,
             args: toolToRun.args,
             idempotencyKey,
+            confirmationToken: toolToRun.confirmationToken,
           },
         }),
       });
