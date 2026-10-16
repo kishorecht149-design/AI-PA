@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
 import { aiGateway } from "@/lib/ai-gateway";
 import { APPLICATION_TOOLS, validateToolArgs } from "@/lib/tools-registry";
+import { inferBehaviorFromContent } from "@/components/assistant/behaviorDirector";
 
 export async function GET() {
   try {
@@ -140,19 +141,26 @@ export async function POST(req: Request) {
       modelId: activeModelId,
     });
 
-    // Save assistant response
-    const assistantContent = response.message.content || "I'm right here with you! What shall we work on today?";
+    // Save assistant response & derive autonomous behavior command
+    const rawContent = response.message.content || "I'm right here with you! What shall we work on today?";
+    const { cleanedText, command: behaviorCommand } = inferBehaviorFromContent(
+      rawContent,
+      message,
+      response.executedToolResults
+    );
+
     const savedMsg = await prisma.message.create({
       data: {
         conversationId: conv.id,
         role: "assistant",
-        content: assistantContent,
+        content: cleanedText,
         toolCallsJson: response.toolCalls ? JSON.stringify(response.toolCalls) : null,
       },
     });
 
     return NextResponse.json({
       message: savedMsg,
+      behaviorCommand,
       toolCalls: response.toolCalls,
       requiresConfirmation: response.requiresConfirmation,
       executedToolResults: response.executedToolResults,

@@ -1,5 +1,5 @@
 import type * as ThreeType from "three";
-import { AnimationClipMeta, AssistantState } from "./types";
+import type { AnimationClipMeta, AssistantState } from "./types.ts";
 
 // ==========================================
 // 1. ORIGINAL 6 RIGGED ANIMATIONS IN GLB

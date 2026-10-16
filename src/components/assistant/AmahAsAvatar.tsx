@@ -21,6 +21,7 @@ export function AmahAsAvatar({
   onStateChange,
   onClipChange,
   onZoneClick,
+  onEngineReady,
 }: AmahAsAvatarProps) {
   const [internalState, setInternalState] = useState<AssistantState>(state);
   const [activeClipName, setActiveClipName] = useState<string | null>(clipOverride);
@@ -90,6 +91,7 @@ export function AmahAsAvatar({
           if (onClipChange) onClipChange(clip);
         }}
         onZoneClick={onZoneClick}
+        onEngineReady={onEngineReady}
         onControllerReady={handleControllerReady}
       />
 

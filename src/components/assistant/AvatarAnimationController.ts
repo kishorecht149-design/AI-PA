@@ -1,10 +1,10 @@
 import type * as ThreeType from "three";
-import { AssistantState } from "./types";
+import type { AssistantState } from "./types.ts";
 import {
   ALL_ANIMATION_METAS,
   STATE_TO_CLIP_MAP,
   STATE_PRIORITY,
-} from "./AvatarAnimationRegistry";
+} from "./AvatarAnimationRegistry.ts";
 
 export interface PlayClipOptions {
   crossfadeDuration?: number;

@@ -31,6 +31,13 @@ export interface AvatarTransformOptions {
   rotation?: [number, number, number];
 }
 
+export interface BehaviorCommand {
+  behavior: AssistantState;
+  intensity?: number;
+  durationMs?: number;
+  reason?: string;
+}
+
 export interface AmahAsAvatarProps {
   state?: AssistantState;
   clipOverride?: string | null;
@@ -45,4 +52,6 @@ export interface AmahAsAvatarProps {
   onStateChange?: (state: AssistantState) => void;
   onClipChange?: (clipName: string) => void;
   onZoneClick?: (zoneName: string) => void;
+  onEngineReady?: (engine: any) => void;
 }
+

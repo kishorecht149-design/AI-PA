@@ -6,6 +6,7 @@ import { AssistantState } from "./types";
 import { AvatarAnimationController } from "./AvatarAnimationController";
 import { AvatarSpeechController } from "./AvatarSpeechController";
 import { generateExpandedClips } from "./AvatarAnimationRegistry";
+import { AutonomousBehaviorEngine } from "./AutonomousBehaviorEngine";
 
 interface AvatarSceneProps {
   state?: AssistantState;
@@ -20,6 +21,7 @@ interface AvatarSceneProps {
   onStateChange?: (state: AssistantState) => void;
   onClipChange?: (clipName: string) => void;
   onZoneClick?: (zoneName: string) => void;
+  onEngineReady?: (engine: AutonomousBehaviorEngine) => void;
   onControllerReady?: (
     controller: AvatarAnimationController,
     speech: AvatarSpeechController
@@ -43,6 +45,7 @@ export function AvatarScene({
   onStateChange,
   onClipChange,
   onZoneClick,
+  onEngineReady,
   onControllerReady,
 }: AvatarSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -51,6 +54,7 @@ export function AvatarScene({
 
   const controllerRef = useRef<AvatarAnimationController | null>(null);
   const speechRef = useRef<AvatarSpeechController | null>(null);
+  const engineRef = useRef<AutonomousBehaviorEngine | null>(null);
   const mousePos = useRef<{ x: number; y: number; isHovered: boolean }>({
     x: 0,
     y: 0,
@@ -245,6 +249,7 @@ export function AvatarScene({
         // 6. Instantiate Controllers
         const controller = new AvatarAnimationController(clone, combinedClips, THREE);
         const speech = new AvatarSpeechController(controller);
+        const engine = new AutonomousBehaviorEngine(controller, bonesMap);
 
         controller.onClipChange = (clipName) => {
           if (onClipChange) onClipChange(clipName);
@@ -257,9 +262,13 @@ export function AvatarScene({
 
         controllerRef.current = controller;
         speechRef.current = speech;
+        engineRef.current = engine;
 
         if (onControllerReady) {
           onControllerReady(controller, speech);
+        }
+        if (onEngineReady) {
+          onEngineReady(engine);
         }
 
         // Play initial state
@@ -278,10 +287,20 @@ export function AvatarScene({
         const animate = () => {
           if (isDisposed) return;
           animId = requestAnimationFrame(animate);
+
+          // Suspend updates if browser tab is hidden to save GPU/CPU
+          if (engine.isSuspended()) {
+            return;
+          }
+
           const delta = Math.min(clock.getDelta(), 0.1);
+          const elapsedTime = clock.getElapsedTime();
 
           // Update character skeletal animation mixer
           controller.update(delta);
+
+          // Update Layer 1 procedural continuous breathing and idle life
+          engine.update(delta, elapsedTime, mousePos.current.isHovered);
 
           // Interactive Look-At head tracking
           if (interactiveLookAt && headBone && mousePos.current.isHovered) {
@@ -317,6 +336,7 @@ export function AvatarScene({
           isDisposed = true;
           if (animId) cancelAnimationFrame(animId);
           resizeObserver.disconnect();
+          engine.dispose();
           speech.dispose();
           controller.dispose();
           pmremGenerator.dispose();
@@ -360,7 +380,7 @@ export function AvatarScene({
     mousePos.current.isHovered = false;
   };
 
-  // Tactile click zones raycasting
+  // Natural tactile touch interaction
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (onClick) onClick();
     if (!mountRef.current || !controllerRef.current) return;
@@ -369,24 +389,44 @@ export function AvatarScene({
     const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    // Approximate vertical hit detection for character zones
-    // ny > 0.4: Head / Visor -> Thinking / Inquisitive
-    // 0.0 < ny <= 0.4: Chest / Arms -> Explaining / Greeting
-    // -0.4 < ny <= 0.0: Waist / Hands -> Affirmation (Yes)
-    // ny <= -0.4: Legs / Feet -> Dance / Celebration
+    // Subtle natural responses to touch — NEVER accidental dance!
     let zoneName = "Torso";
     if (ny > 0.35) {
       zoneName = "Head / Visor";
-      controllerRef.current.transitionToState("thinking");
+      if (engineRef.current) {
+        engineRef.current.executeDirectorCommand({
+          behavior: "thinking",
+          intensity: 0.8,
+          durationMs: 2400,
+          reason: "Attentive response to visor touch",
+        });
+      } else {
+        controllerRef.current.transitionToState("thinking");
+      }
     } else if (ny > 0.0) {
-      zoneName = "Arms & Chest";
-      controllerRef.current.transitionToState("explaining");
-    } else if (ny > -0.35) {
-      zoneName = "Hands / Core";
-      controllerRef.current.transitionToState("acknowledging");
+      zoneName = "Chest / Core";
+      if (engineRef.current) {
+        engineRef.current.executeDirectorCommand({
+          behavior: "acknowledging",
+          intensity: 0.8,
+          durationMs: 2200,
+          reason: "Friendly acknowledgment nod",
+        });
+      } else {
+        controllerRef.current.transitionToState("acknowledging");
+      }
     } else {
-      zoneName = "Boots / Legs";
-      controllerRef.current.transitionToState("dance");
+      zoneName = "Lower Core";
+      if (engineRef.current) {
+        engineRef.current.executeDirectorCommand({
+          behavior: "acknowledging",
+          intensity: 0.75,
+          durationMs: 2000,
+          reason: "Gentle affirmation nod",
+        });
+      } else {
+        controllerRef.current.transitionToState("acknowledging");
+      }
     }
 
     if (onZoneClick) {
@@ -410,7 +450,7 @@ export function AvatarScene({
       <div
         ref={mountRef}
         className="w-full h-full cursor-pointer active:scale-[0.98] transition-transform duration-150"
-        title="AMAHAS 3D AI Assistant — Click Head, Chest, or Boots for interactive reactions!"
+        title="AMAHAS AI Assistant"
       />
 
       {/* Loading Spinner */}
