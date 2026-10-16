@@ -5,6 +5,24 @@ import { aiGateway } from "@/lib/ai-gateway";
 import { APPLICATION_TOOLS, validateToolArgs } from "@/lib/tools-registry";
 import { inferBehaviorFromContent } from "@/components/assistant/behaviorDirector";
 
+// Sliding window rate limiter to protect ₹0 infrastructure tier
+const rateLimitMap = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30; // Max 30 requests/minute per user
+
+function isRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const timestamps = (rateLimitMap.get(userId) || []).filter(
+    (t) => now - t < RATE_LIMIT_WINDOW_MS
+  );
+  if (timestamps.length >= RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+  timestamps.push(now);
+  rateLimitMap.set(userId, timestamps);
+  return false;
+}
+
 export async function GET() {
   try {
     const userId = await resolveApiUserId();
@@ -36,9 +54,20 @@ export async function POST(req: Request) {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Enforce rate limiting
+    if (isRateLimited(userId)) {
+      return NextResponse.json(
+        {
+          error:
+            "Request rate limit exceeded (maximum 30 messages per minute). Please pause briefly before sending another message.",
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { message, modelId, conversationId, executeConfirmedTool } = body;
-    const activeModelId = modelId || body.model || "openrouter/free";
+    const activeModelId = String(modelId || body.model || "openrouter/free").slice(0, 100);
 
     // Direct confirmation execution of a mutating tool with strict validation and idempotency
     if (executeConfirmedTool) {
@@ -94,8 +123,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, toolResult });
     }
 
-    if (!message?.trim()) {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+    if (typeof message !== "string" || !message.trim()) {
+      return NextResponse.json({ error: "Message is required and must be non-empty." }, { status: 400 });
+    }
+
+    if (message.length > 4000) {
+      return NextResponse.json(
+        { error: "Message exceeds maximum allowed limit of 4000 characters." },
+        { status: 400 }
+      );
     }
 
     // Get or create conversation

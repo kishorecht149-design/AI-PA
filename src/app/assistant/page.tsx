@@ -28,6 +28,9 @@ import {
   Terminal,
   Activity,
   Layers,
+  Square,
+  RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 import { KNOWN_FREE_MODELS } from "@/lib/ai-gateway";
 import { AmahAsAvatar } from "@/components/assistant/AmahAsAvatar";
@@ -78,17 +81,26 @@ export default function AssistantPage() {
   // Pending tool confirmation
   const [pendingTool, setPendingTool] = useState<PendingToolConfirmation | null>(null);
 
-  // Voice capabilities
+  // Voice capabilities & detection
   const [isRecording, setIsRecording] = useState(false);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(false);
+
+  // Stop Generation & Error Recovery
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [errorState, setErrorState] = useState<{ message: string; prompt: string } | null>(null);
 
   // Autonomous Behavior Engine Reference
   const engineRef = useRef<AutonomousBehaviorEngine | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-enable dev mode if ?dev=true is present in URL
+  // Browser feature detection & URL dev mode check
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const hasSpeech =
+        "SpeechRecognition" in window || "webkitSpeechRecognition" in window;
+      setIsVoiceSupported(hasSpeech);
+
       const params = new URLSearchParams(window.location.search);
       if (params.get("dev") === "true") {
         setShowDevModal(true);
@@ -189,14 +201,29 @@ export default function AssistantPage() {
     }
   };
 
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    if (engineRef.current) {
+      engineRef.current.resetToIdle();
+    }
+  };
+
   const handleSend = async (e?: React.FormEvent, directPrompt?: string) => {
     if (e) e.preventDefault();
     const promptToSend = directPrompt || input.trim();
     if (!promptToSend || loading) return;
 
+    setErrorState(null);
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: promptToSend }]);
     setLoading(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     // Transition avatar to autonomous thinking state immediately
     if (engineRef.current) {
@@ -211,6 +238,7 @@ export default function AssistantPage() {
           message: promptToSend,
           modelId,
         }),
+        signal: controller.signal,
       });
 
       let data: any = null;
@@ -277,18 +305,30 @@ export default function AssistantPage() {
         });
       }
     } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `System notice: ${err.message}` },
-      ]);
-      if (engineRef.current) {
-        engineRef.current.onResponseReceived({
-          isError: true,
-          userPrompt: promptToSend,
-        });
+      if (err?.name === "AbortError") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Response generation was stopped." },
+        ]);
+        if (engineRef.current) {
+          engineRef.current.resetToIdle();
+        }
+      } else {
+        setErrorState({ message: err.message, prompt: promptToSend });
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `System notice: ${err.message}` },
+        ]);
+        if (engineRef.current) {
+          engineRef.current.onResponseReceived({
+            isError: true,
+            userPrompt: promptToSend,
+          });
+        }
       }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -810,6 +850,23 @@ export default function AssistantPage() {
                 </div>
               </div>
             )}
+            {/* Error Recovery Card */}
+            {errorState && (
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-red-950/40 border border-red-500/30 text-xs text-red-200 animate-message-in">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span className="truncate">{errorState.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSend(undefined, errorState.prompt)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-semibold text-xs shrink-0 transition-colors ml-2"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Retry</span>
+                </button>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -1032,15 +1089,47 @@ export default function AssistantPage() {
               className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 transition-all"
             />
 
-            {/* Send Button */}
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-black font-semibold text-xs shadow-md shadow-cyan-500/20 disabled:opacity-40 flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Send</span>
-            </button>
+            {/* Voice Input Microphone Button (Only enabled when supported) */}
+            {isVoiceSupported && (
+              <button
+                type="button"
+                onClick={toggleVoiceRecording}
+                className={`p-3 rounded-xl border text-xs transition-all flex items-center justify-center ${
+                  isRecording
+                    ? "bg-red-500/20 border-red-500 text-red-300 shadow-[0_0_12px_rgba(239,68,68,0.4)]"
+                    : "bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10"
+                }`}
+                title={isRecording ? "Stop voice listening" : "Voice input via SpeechRecognition"}
+              >
+                {isRecording ? (
+                  <MicOff className="w-4 h-4 text-red-400 animate-pulse" />
+                ) : (
+                  <Mic className="w-4 h-4 text-cyan-400" />
+                )}
+              </button>
+            )}
+
+            {/* Action Button: Stop Generation when loading, else Send */}
+            {loading ? (
+              <button
+                type="button"
+                onClick={handleStopGeneration}
+                className="px-5 py-3 rounded-xl bg-red-500/25 hover:bg-red-500/35 border border-red-500/40 text-red-200 font-semibold text-xs shadow-md shadow-red-500/20 flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                title="Stop generation"
+              >
+                <Square className="w-3 h-3 fill-current" />
+                <span>Stop</span>
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-black font-semibold text-xs shadow-md shadow-cyan-500/20 disabled:opacity-40 flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Send</span>
+              </button>
+            )}
           </form>
         </section>
       </div>

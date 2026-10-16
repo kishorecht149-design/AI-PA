@@ -1,5 +1,6 @@
 import { APPLICATION_TOOLS, type ToolDefinition } from "./tools-registry.ts";
 import { prisma } from "./prisma.ts";
+import { providerManager } from "./providers/index.ts";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -140,28 +141,13 @@ export class AIGateway {
    * Check connection status of Ollama local daemon.
    */
   async testOllamaConnection(baseUrl?: string): Promise<{ success: boolean; models: string[]; message: string }> {
-    const url = baseUrl || this.ollamaBaseUrl;
-    try {
-      const res = await fetch(`${url}/api/tags`, {
-        signal: AbortSignal.timeout(3000),
-      });
-      if (!res.ok) {
-        return { success: false, models: [], message: `Ollama returned HTTP ${res.status}` };
-      }
-      const data = await res.json();
-      const modelNames = (data.models || []).map((m: any) => m.name);
-      return {
-        success: true,
-        models: modelNames,
-        message: `Connected to Ollama on ${url}. Available local models: ${modelNames.join(", ") || "none"}`,
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        models: [],
-        message: `Local Ollama instance not reachable at ${url} (${err.message}). Start Ollama with 'ollama serve' to enable local inference.`,
-      };
-    }
+    const ollama = providerManager.getProviderForModel("ollama/default");
+    const health = await ollama.checkHealth(baseUrl);
+    return {
+      success: health.available,
+      models: health.models || [],
+      message: health.message,
+    };
   }
 
   /**
@@ -243,10 +229,34 @@ Live Web Search Engine & Research:
 
     const finalMessages = [systemPrompt, ...messages];
 
+    // 2.5 Hybrid Local Inference via Ollama (if selected)
+    if (modelId.startsWith("ollama/")) {
+      const ollama = providerManager.getProviderForModel(modelId);
+      const health = await ollama.checkHealth();
+      if (health.available) {
+        try {
+          const res = await ollama.chat({
+            messages: finalMessages,
+            modelId,
+            temperature,
+          });
+          return { message: res.message };
+        } catch (ollamaErr: any) {
+          console.warn(
+            `[AIGateway] Local Ollama model failed (${ollamaErr.message}). Seamlessly failing over to OpenRouter cloud free tier.`
+          );
+        }
+      } else {
+        console.warn(
+          `[AIGateway] Local Ollama unavailable (${health.message}). Routing query through OpenRouter cloud free tier.`
+        );
+      }
+    }
+
     // 3. OpenRouter with resilient multi-model fallback
     if (this.openRouterKey) {
       const modelsToTry = [
-        modelId,
+        modelId.startsWith("ollama/") ? "openrouter/free" : modelId,
         "openrouter/free",
         "meta-llama/llama-3.3-70b-instruct:free",
         "google/gemma-2-9b-it:free",
