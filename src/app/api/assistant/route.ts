@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
 import { aiGateway } from "@/lib/ai-gateway";
-import { APPLICATION_TOOLS, validateToolArgs } from "@/lib/tools-registry";
+import { ALL_TOOLS, APPLICATION_TOOLS, validateToolArgs } from "@/lib/tools-registry";
 import { inferBehaviorFromContent } from "@/components/assistant/behaviorDirector";
 
 // Sliding window rate limiter to protect ₹0 infrastructure tier
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     // Direct confirmation execution of a mutating tool with strict validation and idempotency
     if (executeConfirmedTool) {
       const { toolName, args, idempotencyKey } = executeConfirmedTool;
-      const toolDef = APPLICATION_TOOLS[toolName];
+      const toolDef = ALL_TOOLS[toolName] || APPLICATION_TOOLS[toolName];
       if (!toolDef) {
         return NextResponse.json({ error: `Unknown tool '${toolName}'` }, { status: 400 });
       }

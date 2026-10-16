@@ -1,10 +1,12 @@
 import { prisma } from "./prisma.ts";
 import { calculateSM2 } from "./spaced-repetition.ts";
+import { decodeHtmlEntities } from "./format-utils.ts";
 
 export interface ToolDefinition {
   name: string;
   description: string;
   isReadOnly: boolean; // Read-only tools execute without manual confirmation
+  isDestructive?: boolean; // Destructive actions (delete) strictly require confirmation
   parameters: {
     type: "object";
     properties: Record<string, { type: string; description: string; enum?: string[] }>;
@@ -27,7 +29,11 @@ export function validateToolArgs(
 
   // Check required fields
   for (const reqField of toolDef.parameters.required) {
-    if (args[reqField] === undefined || args[reqField] === null || (typeof args[reqField] === "string" && !args[reqField].trim())) {
+    if (
+      args[reqField] === undefined ||
+      args[reqField] === null ||
+      (typeof args[reqField] === "string" && !args[reqField].trim())
+    ) {
       errors.push(`Missing required parameter: '${reqField}'`);
     }
   }
@@ -50,10 +56,352 @@ export function validateToolArgs(
   return { valid: errors.length === 0, errors };
 }
 
+// =============================================================================
+// APPLICATION TOOLS (Internal AMAHAS Resources: Academics, Tasks, Reminders, Notes)
+// =============================================================================
+
 export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
-  search_tasks: {
-    name: "search_tasks",
-    description: "Search and retrieve existing student tasks by status, priority, or query.",
+  // ---------------------------------------------------------------------------
+  // 1. Academics: Query & Records
+  // ---------------------------------------------------------------------------
+  get_academic_records: {
+    name: "get_academic_records",
+    description: "Retrieve all registered courses, syllabus topics, mastery status, and readiness from the user's academic plan.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "Optional course code filter (e.g. EC402, CS301)" },
+      },
+      required: [],
+    },
+    execute: async (userId, args) => {
+      const where: any = { userId };
+      if (args.code) where.code = args.code.toUpperCase().trim();
+
+      const courses = await prisma.course.findMany({
+        where,
+        include: {
+          units: {
+            include: {
+              topics: {
+                include: {
+                  revisionRecords: { orderBy: { studiedAt: "desc" }, take: 1 },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { code: "asc" },
+      });
+
+      let totalTopics = 0;
+      let masteredTopics = 0;
+      const formattedCourses = courses.map((c) => {
+        const topics = c.units.flatMap((u) => u.topics);
+        const mastered = topics.filter((t) => t.status === "MASTERED").length;
+        totalTopics += topics.length;
+        masteredTopics += mastered;
+        return {
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          instructor: c.instructor || "Unassigned",
+          semester: c.semester || "Current",
+          confidence: c.confidence,
+          targetGrade: c.targetGrade || "A",
+          track: c.track || "General",
+          isGateSubject: c.isGateSubject,
+          totalUnits: c.units.length,
+          totalTopics: topics.length,
+          masteredTopics: mastered,
+          readinessPct: topics.length > 0 ? Math.round((mastered / topics.length) * 100) : 0,
+        };
+      });
+
+      return {
+        totalCourses: courses.length,
+        overallReadinessPct: totalTopics > 0 ? Math.round((masteredTopics / totalTopics) * 100) : 0,
+        courses: formattedCourses,
+      };
+    },
+  },
+
+  get_academic_courses: {
+    name: "get_academic_courses",
+    description: "Alias for get_academic_records. Retrieve active courses and syllabus coverage.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "Optional course code filter" },
+      },
+      required: [],
+    },
+    execute: async (userId, args) => {
+      return await APPLICATION_TOOLS.get_academic_records.execute(userId, args);
+    },
+  },
+
+  get_course_progress: {
+    name: "get_course_progress",
+    description: "Retrieve academic courses, syllabus coverage, confidence, and pending revisions.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {
+        courseCode: { type: "string", description: "Optional course code filter" },
+      },
+      required: [],
+    },
+    execute: async (userId, args) => {
+      return await APPLICATION_TOOLS.get_academic_records.execute(userId, { code: args.courseCode });
+    },
+  },
+
+  create_academic_record: {
+    name: "create_academic_record",
+    description: "Create and register a new academic course in the student's academic plan.",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Full course title (e.g. Antennas and Wave Propagation)" },
+        code: { type: "string", description: "Course code (e.g. EC402, CS301). If omitted, an appropriate code will be generated." },
+        instructor: { type: "string", description: "Optional professor or instructor name" },
+        semester: { type: "string", description: "Optional academic semester (e.g. Semester 6, Fall 2026)" },
+        track: { type: "string", description: "Optional track (e.g. GATE_EC, GATE_CS, ECE_CORE)" },
+        targetGrade: { type: "string", description: "Optional target grade (e.g. A+, 90%+)" },
+        confidence: { type: "number", description: "Confidence score from 1 to 5 (default 3)" },
+        isGateSubject: { type: "string", description: "Set 'true' if subject is on competitive exam syllabus" },
+      },
+      required: ["name"],
+    },
+    execute: async (userId, args) => {
+      const name = String(args.name).trim();
+      if (!name) throw new Error("Course name is required.");
+
+      // Generate a reasonable course code if omitted
+      let code = args.code ? String(args.code).toUpperCase().trim() : "";
+      if (!code) {
+        const initials = name
+          .split(/\s+/)
+          .map((w) => w[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 4);
+        code = `${initials}101`;
+      }
+
+      // Check if course already exists for user
+      const existing = await prisma.course.findFirst({
+        where: { userId, OR: [{ code }, { name: { equals: name } }] },
+      });
+      if (existing) {
+        return {
+          success: true,
+          message: `Course "${existing.name}" (${existing.code}) already exists in your academic plan.`,
+          course: existing,
+          alreadyExisted: true,
+        };
+      }
+
+      const course = await prisma.course.create({
+        data: {
+          userId,
+          name,
+          code,
+          instructor: args.instructor ? String(args.instructor).trim() : null,
+          semester: args.semester ? String(args.semester).trim() : "Current",
+          track: args.track ? String(args.track).trim() : "General",
+          targetGrade: args.targetGrade ? String(args.targetGrade).trim() : "A",
+          confidence: args.confidence ? Math.max(1, Math.min(5, Number(args.confidence))) : 3,
+          isGateSubject: args.isGateSubject === "true" || args.isGateSubject === true,
+        },
+      });
+
+      return {
+        success: true,
+        message: `Successfully registered course "${course.name}" (${course.code}) in your academic plan.`,
+        course,
+      };
+    },
+  },
+
+  update_academic_record: {
+    name: "update_academic_record",
+    description: "Update an existing academic course (confidence, target grade, instructor, semester, track).",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        courseId: { type: "string", description: "ID of course to update" },
+        code: { type: "string", description: "Course code (e.g. EC402) if ID is not known" },
+        name: { type: "string", description: "Updated course name" },
+        confidence: { type: "number", description: "Updated confidence level (1-5)" },
+        targetGrade: { type: "string", description: "Updated target grade (e.g. A, S, 95%)" },
+        instructor: { type: "string", description: "Updated instructor name" },
+        semester: { type: "string", description: "Updated semester" },
+        track: { type: "string", description: "Updated track" },
+      },
+      required: [],
+    },
+    execute: async (userId, args) => {
+      const course = await prisma.course.findFirst({
+        where: {
+          userId,
+          OR: [
+            ...(args.courseId ? [{ id: args.courseId }] : []),
+            ...(args.code ? [{ code: args.code.toUpperCase().trim() }] : []),
+            ...(args.name ? [{ name: { contains: args.name.trim() } }] : []),
+          ],
+        },
+      });
+
+      if (!course) {
+        throw new Error(
+          `Course not found for updating. Please verify the course code or name.`
+        );
+      }
+
+      const updateData: any = {};
+      if (args.name) updateData.name = args.name.trim();
+      if (args.confidence !== undefined) updateData.confidence = Math.max(1, Math.min(5, Number(args.confidence)));
+      if (args.targetGrade) updateData.targetGrade = args.targetGrade.trim();
+      if (args.instructor) updateData.instructor = args.instructor.trim();
+      if (args.semester) updateData.semester = args.semester.trim();
+      if (args.track) updateData.track = args.track.trim();
+
+      const updated = await prisma.course.update({
+        where: { id: course.id },
+        data: updateData,
+      });
+
+      return {
+        success: true,
+        message: `Updated course "${updated.name}" (${updated.code}).`,
+        course: updated,
+      };
+    },
+  },
+
+  delete_academic_record: {
+    name: "delete_academic_record",
+    description: "Delete a course from the academic plan. Destructive action requiring user confirmation.",
+    isReadOnly: false,
+    isDestructive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        courseId: { type: "string", description: "ID of the course to delete" },
+        code: { type: "string", description: "Course code (e.g. EC402) if ID is not known" },
+      },
+      required: [],
+    },
+    execute: async (userId, args) => {
+      const course = await prisma.course.findFirst({
+        where: {
+          userId,
+          OR: [
+            ...(args.courseId ? [{ id: args.courseId }] : []),
+            ...(args.code ? [{ code: args.code.toUpperCase().trim() }] : []),
+          ],
+        },
+      });
+
+      if (!course) {
+        throw new Error(`Course not found or unauthorized.`);
+      }
+
+      await prisma.course.delete({
+        where: { id: course.id },
+      });
+
+      return {
+        success: true,
+        message: `Deleted course "${course.name}" (${course.code}) from your academic plan.`,
+        deletedCourseId: course.id,
+      };
+    },
+  },
+
+  record_syllabus_revision: {
+    name: "record_syllabus_revision",
+    description: "Record a SuperMemo SM-2 study revision attempt on a syllabus topic with active recall rating (1-5).",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        topicTitle: { type: "string", description: "Title of topic revised" },
+        rating: { type: "number", description: "Recall rating from 1 (blackout) to 5 (flawless)" },
+        notes: { type: "string", description: "Optional study reflections or error notes" },
+      },
+      required: ["topicTitle", "rating"],
+    },
+    execute: async (userId, args) => {
+      const topic = await prisma.syllabusTopic.findFirst({
+        where: {
+          unit: { course: { userId } },
+          title: { contains: args.topicTitle },
+        },
+        include: { revisionRecords: { orderBy: { studiedAt: "desc" }, take: 1 } },
+      });
+
+      if (!topic) {
+        throw new Error(`Topic "${args.topicTitle}" not found in your registered syllabus.`);
+      }
+
+      const rating = Math.max(1, Math.min(5, Number(args.rating)));
+      const lastRecord = topic.revisionRecords[0];
+      const prevRepetitions = topic.revisionCount;
+      const prevInterval = lastRecord?.intervalDays || 1;
+      const prevEase = lastRecord?.easeFactor || 2.5;
+
+      const sm2 = calculateSM2({
+        rating,
+        repetitions: prevRepetitions,
+        intervalDays: prevInterval,
+        easeFactor: prevEase,
+      });
+
+      await prisma.$transaction([
+        prisma.revisionRecord.create({
+          data: {
+            topicId: topic.id,
+            rating,
+            intervalDays: sm2.intervalDays,
+            easeFactor: sm2.easeFactor,
+            notes: args.notes || null,
+          },
+        }),
+        prisma.syllabusTopic.update({
+          where: { id: topic.id },
+          data: {
+            status: rating >= 4 ? "MASTERED" : "REVISED",
+            lastStudiedAt: new Date(),
+            nextRevisionAt: sm2.nextReviewDate,
+            revisionCount: sm2.repetitions,
+          },
+        }),
+      ]);
+
+      return {
+        success: true,
+        message: `Revision recorded for "${topic.title}": rating ${rating}/5. Next review scheduled in ${sm2.intervalDays} day(s).`,
+        nextReviewDate: sm2.nextReviewDate,
+      };
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // 2. Tasks & Reminders
+  // ---------------------------------------------------------------------------
+  get_tasks: {
+    name: "get_tasks",
+    description: "Search and retrieve student tasks filtered by status, priority, or query.",
     isReadOnly: true,
     parameters: {
       type: "object",
@@ -77,17 +425,39 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
       const tasks = await prisma.task.findMany({
         where,
         take: 20,
-        orderBy: { createdAt: "desc" },
-        include: { project: { select: { name: true } }, course: { select: { code: true, name: true } } },
+        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+        include: {
+          project: { select: { name: true } },
+          course: { select: { code: true, name: true } },
+        },
       });
       return { count: tasks.length, tasks };
     },
   },
 
+  search_tasks: {
+    name: "search_tasks",
+    description: "Alias for get_tasks.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search keyword in task title" },
+        status: { type: "string", description: "Task status: TODO, IN_PROGRESS, COMPLETED", enum: ["TODO", "IN_PROGRESS", "COMPLETED"] },
+        priority: { type: "string", description: "Task priority", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] },
+      },
+      required: [],
+    },
+    execute: async (userId, args) => {
+      return await APPLICATION_TOOLS.get_tasks.execute(userId, args);
+    },
+  },
+
   create_task: {
     name: "create_task",
-    description: "Create a new student task with optional priority, estimated duration, due date, course, or project.",
+    description: "Create a new student task with priority, estimated minutes, due date, or course code.",
     isReadOnly: false,
+    isDestructive: false,
     parameters: {
       type: "object",
       properties: {
@@ -104,7 +474,7 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
       let courseId: string | undefined;
       if (args.courseCode) {
         const course = await prisma.course.findFirst({
-          where: { userId, code: args.courseCode },
+          where: { userId, code: args.courseCode.toUpperCase().trim() },
         });
         if (course) courseId = course.id;
       }
@@ -112,8 +482,8 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
       const task = await prisma.task.create({
         data: {
           userId,
-          title: args.title,
-          description: args.description || null,
+          title: args.title.trim(),
+          description: args.description ? args.description.trim() : null,
           priority: args.priority || "MEDIUM",
           estimatedMinutes: args.estimatedMinutes ? Number(args.estimatedMinutes) : null,
           dueDate: args.dueDate ? new Date(args.dueDate) : null,
@@ -124,10 +494,52 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
     },
   },
 
+  update_task: {
+    name: "update_task",
+    description: "Update attributes of an existing task (status, priority, title, description, or due date).",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        taskId: { type: "string", description: "The ID of the task" },
+        title: { type: "string", description: "Updated task title" },
+        status: { type: "string", description: "New status", enum: ["TODO", "IN_PROGRESS", "COMPLETED", "CANCELLED"] },
+        priority: { type: "string", description: "New priority", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] },
+        estimatedMinutes: { type: "number", description: "Updated estimated duration in minutes" },
+        dueDate: { type: "string", description: "Updated due date" },
+      },
+      required: ["taskId"],
+    },
+    execute: async (userId, args) => {
+      const task = await prisma.task.findFirst({
+        where: { id: args.taskId, userId },
+      });
+      if (!task) throw new Error("Task not found or unauthorized");
+
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title.trim();
+      if (args.status) {
+        updateData.status = args.status;
+        if (args.status === "COMPLETED") updateData.completedAt = new Date();
+      }
+      if (args.priority) updateData.priority = args.priority;
+      if (args.estimatedMinutes !== undefined) updateData.estimatedMinutes = Number(args.estimatedMinutes);
+      if (args.dueDate) updateData.dueDate = new Date(args.dueDate);
+
+      const updated = await prisma.task.update({
+        where: { id: args.taskId },
+        data: updateData,
+      });
+      return { success: true, message: `Task "${updated.title}" updated (${updated.status})`, task: updated };
+    },
+  },
+
   update_task_status: {
     name: "update_task_status",
     description: "Update the status of an existing task (e.g. mark COMPLETED or IN_PROGRESS).",
     isReadOnly: false,
+    isDestructive: false,
     parameters: {
       type: "object",
       properties: {
@@ -137,22 +549,93 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
       required: ["taskId", "status"],
     },
     execute: async (userId, args) => {
+      return await APPLICATION_TOOLS.update_task.execute(userId, args);
+    },
+  },
+
+  delete_task: {
+    name: "delete_task",
+    description: "Delete an existing task. Destructive action requiring user confirmation.",
+    isReadOnly: false,
+    isDestructive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        taskId: { type: "string", description: "The ID of the task to delete" },
+      },
+      required: ["taskId"],
+    },
+    execute: async (userId, args) => {
       const task = await prisma.task.findFirst({
         where: { id: args.taskId, userId },
       });
       if (!task) throw new Error("Task not found or unauthorized");
 
-      const updated = await prisma.task.update({
+      await prisma.task.delete({
         where: { id: args.taskId },
-        data: {
-          status: args.status,
-          completedAt: args.status === "COMPLETED" ? new Date() : null,
-        },
       });
-      return { success: true, message: `Task "${updated.title}" marked as ${updated.status}`, task: updated };
+      return { success: true, message: `Deleted task "${task.title}".` };
     },
   },
 
+  create_reminder: {
+    name: "create_reminder",
+    description: "Create an active notification and reminder for deadlines, exams, or study alerts.",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Title of the reminder" },
+        message: { type: "string", description: "Details or context for the reminder" },
+        scheduledDate: { type: "string", description: "Optional ISO date string for when the reminder fires" },
+        category: { type: "string", description: "Category: DEADLINE, REVISION, or REVIEW", enum: ["DEADLINE", "REVISION", "REVIEW"] },
+      },
+      required: ["title"],
+    },
+    execute: async (userId, args) => {
+      const title = String(args.title).trim();
+      const message = args.message ? String(args.message).trim() : title;
+
+      const notif = await prisma.notification.create({
+        data: {
+          userId,
+          title,
+          message,
+          category: args.category || "DEADLINE",
+          isRead: false,
+        },
+      });
+
+      let calendarEvent: any = null;
+      if (args.scheduledDate) {
+        const start = new Date(args.scheduledDate);
+        if (!isNaN(start.getTime())) {
+          calendarEvent = await prisma.calendarEvent.create({
+            data: {
+              userId,
+              title: `[Reminder] ${title}`,
+              description: message,
+              startTime: start,
+              endTime: new Date(start.getTime() + 30 * 60000),
+              category: "personal",
+            },
+          });
+        }
+      }
+
+      return {
+        success: true,
+        message: `Reminder created: "${title}".`,
+        reminder: notif,
+        calendarEvent,
+      };
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // 3. Schedule, Notes, Focus, Dashboard
+  // ---------------------------------------------------------------------------
   get_schedule: {
     name: "get_schedule",
     description: "Get scheduled calendar events and time blocks for a given date range.",
@@ -191,82 +674,29 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
     },
   },
 
-  get_course_progress: {
-    name: "get_course_progress",
-    description: "Retrieve academic courses, syllabus coverage, confidence, and pending revisions.",
-    isReadOnly: true,
-    parameters: {
-      type: "object",
-      properties: {
-        courseCode: { type: "string", description: "Optional course code filter" },
-      },
-      required: [],
-    },
-    execute: async (userId, args) => {
-      const where: any = { userId };
-      if (args.courseCode) where.code = args.courseCode;
-
-      const courses = await prisma.course.findMany({
-        where,
-        include: {
-          units: {
-            include: {
-              topics: true,
-            },
-          },
-        },
-      });
-
-      const summary = courses.map((course) => {
-        let totalTopics = 0;
-        let masteredTopics = 0;
-        let dueRevisionCount = 0;
-        const now = new Date();
-
-        course.units.forEach((u) => {
-          totalTopics += u.topics.length;
-          masteredTopics += u.topics.filter((t) => t.status === "MASTERED").length;
-          dueRevisionCount += u.topics.filter(
-            (t) => t.nextRevisionAt && new Date(t.nextRevisionAt) <= now
-          ).length;
-        });
-
-        return {
-          code: course.code,
-          name: course.name,
-          confidence: course.confidence,
-          isGateSubject: course.isGateSubject,
-          totalTopics,
-          masteredTopics,
-          dueRevisionCount,
-          syllabusCoveragePct: totalTopics > 0 ? Math.round((masteredTopics / totalTopics) * 100) : 0,
-        };
-      });
-
-      return { courses: summary };
-    },
-  },
-
   search_notes: {
     name: "search_notes",
-    description: "Search student notes and knowledge base for relevant concepts or study records.",
+    description: "Search user's notes and Knowledge Graph articles by keyword, topic, or tag.",
     isReadOnly: true,
     parameters: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Search query string" },
+        query: { type: "string", description: "Keyword or topic to search across notes" },
+        tag: { type: "string", description: "Optional tag filter" },
       },
       required: ["query"],
     },
     execute: async (userId, args) => {
+      const where: any = { userId };
+      if (args.tag) where.tags = { contains: args.tag };
+      if (args.query) {
+        where.OR = [
+          { title: { contains: args.query } },
+          { contentMarkdown: { contains: args.query } },
+        ];
+      }
       const notes = await prisma.note.findMany({
-        where: {
-          userId,
-          OR: [
-            { title: { contains: args.query } },
-            { contentMarkdown: { contains: args.query } },
-          ],
-        },
+        where,
         take: 10,
         select: { id: true, title: true, tags: true, isPinned: true, updatedAt: true },
       });
@@ -274,40 +704,222 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
     },
   },
 
-  generate_quiz: {
-    name: "generate_quiz",
-    description: "Generate practice questions for a specific topic or course based on recorded syllabus.",
+  schedule_focus_block: {
+    name: "schedule_focus_block",
+    description: "Create a planned Deep Work focus block in the calendar.",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Focus session title" },
+        durationMinutes: { type: "number", description: "Duration in minutes (e.g. 25, 45, 60)" },
+        startTime: { type: "string", description: "ISO start datetime string (defaults to now)" },
+      },
+      required: ["title"],
+    },
+    execute: async (userId, args) => {
+      const start = args.startTime ? new Date(args.startTime) : new Date();
+      const dur = Number(args.durationMinutes) || 45;
+      const end = new Date(start.getTime() + dur * 60000);
+
+      const block = await prisma.timeBlock.create({
+        data: {
+          userId,
+          title: args.title,
+          startTime: start,
+          endTime: end,
+          isFixed: false,
+        },
+      });
+
+      return {
+        success: true,
+        message: `Scheduled ${dur}m Deep Work block: "${args.title}" at ${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`,
+        block,
+      };
+    },
+  },
+
+  get_dashboard_sections: {
+    name: "get_dashboard_sections",
+    description: "Retrieve customized dashboard sections and folders.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+    execute: async (userId) => {
+      const sections = await prisma.customDashboardSection.findMany({
+        where: { userId },
+        orderBy: { order: "asc" },
+      });
+      return { count: sections.length, sections };
+    },
+  },
+
+  customize_dashboard_section: {
+    name: "customize_dashboard_section",
+    description: "Create or customize a dashboard section with folders.",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Section title (e.g. Resources, Exam Hub)" },
+        description: { type: "string", description: "Optional subtitle" },
+        folderTitles: { type: "string", description: "Comma-separated folder titles (e.g. Video Links, Books, Materials)" },
+      },
+      required: ["title"],
+    },
+    execute: async (userId, args) => {
+      const folders = args.folderTitles
+        ? args.folderTitles.split(",").map((t: string) => ({
+            id: `folder_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            title: t.trim(),
+            items: [],
+          }))
+        : [];
+
+      const section = await prisma.customDashboardSection.create({
+        data: {
+          userId,
+          title: args.title.trim(),
+          description: args.description || null,
+          itemsJson: JSON.stringify(folders),
+        },
+      });
+
+      return {
+        success: true,
+        message: `Dashboard section "${section.title}" created with folders: ${folders.map((f: any) => f.title).join(", ")}.`,
+        section,
+      };
+    },
+  },
+
+  log_habit_completion: {
+    name: "log_habit_completion",
+    description: "Record daily completion of a student habit to update streaks and XP.",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        habitTitle: { type: "string", description: "Title or keyword of the habit to mark complete" },
+      },
+      required: ["habitTitle"],
+    },
+    execute: async (userId, args) => {
+      const habit = await prisma.habit.findFirst({
+        where: { userId, name: { contains: args.habitTitle } },
+      });
+      if (!habit) throw new Error(`Habit "${args.habitTitle}" not found`);
+
+      const updated = await prisma.habit.update({
+        where: { id: habit.id },
+        data: {
+          currentStreak: habit.currentStreak + 1,
+          longestStreak: Math.max(habit.longestStreak, habit.currentStreak + 1),
+        },
+      });
+      return {
+        success: true,
+        message: `Completed habit "${updated.name}". Streak is now ${updated.currentStreak} days!`,
+        habit: updated,
+      };
+    },
+  },
+
+  trigger_workflow: {
+    name: "trigger_workflow",
+    description: "Trigger an authorized student automation workflow.",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        automationId: { type: "string", description: "Automation rule ID" },
+      },
+      required: ["automationId"],
+    },
+    execute: async (userId, args) => {
+      const auto = await prisma.automation.findFirst({
+        where: { id: args.automationId, userId },
+      });
+      if (!auto) throw new Error("Automation not found or unauthorized");
+
+      const execution = await prisma.automationExecution.create({
+        data: {
+          automationId: auto.id,
+          status: "SUCCESS",
+          triggerPayload: JSON.stringify({
+            triggeredByTool: "trigger_workflow",
+            timestamp: new Date().toISOString(),
+          }),
+          stepsResultJson: JSON.stringify({
+            steps: ["Trigger Activated", "Actions Evaluated", "Execution Recorded"],
+            result: "Manual trigger processed successfully",
+          }),
+        },
+      });
+
+      return {
+        success: true,
+        message: `Automation "${auto.name}" executed successfully.`,
+        executionId: execution.id,
+      };
+    },
+  },
+
+  // Research tool backward compatibility references
+  get search_research_papers() {
+    return RESEARCH_TOOLS.search_research_papers;
+  },
+  get search_web() {
+    return RESEARCH_TOOLS.search_web;
+  },
+  get fetch_webpage_content() {
+    return RESEARCH_TOOLS.fetch_webpage_content;
+  },
+};
+
+// =============================================================================
+// RESEARCH TOOLS (Live Web, arXiv, Document Readers — Isolated Group)
+// =============================================================================
+
+export const RESEARCH_TOOLS: Record<string, ToolDefinition> = {
+  search_web: {
+    name: "search_web",
+    description: "Search across websites and the live internet for real-time documentation, research papers, and technical facts.",
     isReadOnly: true,
     parameters: {
       type: "object",
       properties: {
-        topicTitle: { type: "string", description: "Topic to test understanding on" },
-        questionCount: { type: "number", description: "Number of questions (default 3)" },
+        query: { type: "string", description: "Specific keywords to search the internet for" },
+        limit: { type: "number", description: "Maximum number of search results (default 5)" },
       },
-      required: ["topicTitle"],
+      required: ["query"],
     },
-    execute: async (userId, args) => {
-      // Find matching topic in database
-      const topic = await prisma.syllabusTopic.findFirst({
-        where: {
-          unit: { course: { userId } },
-          title: { contains: args.topicTitle },
-        },
-        include: { quizQuestions: true, unit: { include: { course: true } } },
-      });
+    execute: async (_userId, args) => {
+      return await performWebSearch(args.query, Number(args.limit) || 5);
+    },
+  },
 
-      if (topic && topic.quizQuestions.length > 0) {
-        return {
-          topic: topic.title,
-          course: topic.unit.course.name,
-          questions: topic.quizQuestions.slice(0, args.questionCount || 3),
-        };
-      }
-
-      return {
-        topic: args.topicTitle,
-        info: "Generated dynamic practice prompt for assistant reasoning.",
-      };
+  fetch_webpage_content: {
+    name: "fetch_webpage_content",
+    description: "Fetch and read the readable text content of a specific webpage or URL.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "The full http/https URL of the webpage to fetch" },
+      },
+      required: ["url"],
+    },
+    execute: async (_userId, args) => {
+      return await fetchWebpage(args.url);
     },
   },
 
@@ -328,336 +940,81 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
           researchProject: { userId },
           OR: [
             { title: { contains: args.query } },
-            { abstract: { contains: args.query } },
             { authors: { contains: args.query } },
+            { abstract: { contains: args.query } },
           ],
         },
         take: 10,
-        include: { researchProject: { select: { title: true } } },
       });
       return { count: papers.length, papers };
     },
   },
+};
 
-  schedule_focus_block: {
-    name: "schedule_focus_block",
-    description: "Schedule a dedicated study or focus timeblock in the student planner.",
-    isReadOnly: false,
-    parameters: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Title or focus goal of the block" },
-        startTime: { type: "string", description: "ISO start datetime string" },
-        endTime: { type: "string", description: "ISO end datetime string" },
-        taskId: { type: "string", description: "Optional associated task ID" },
-      },
-      required: ["title", "startTime", "endTime"],
-    },
-    execute: async (userId, args) => {
-      const timeBlock = await prisma.timeBlock.create({
-        data: {
-          userId,
-          title: args.title,
-          startTime: new Date(args.startTime),
-          endTime: new Date(args.endTime),
-          taskId: args.taskId || null,
-        },
-      });
-      return { success: true, message: `Focus block scheduled: "${timeBlock.title}"`, timeBlock };
-    },
-  },
+// =============================================================================
+// COMBINED REGISTRY & INTENT TOOL FILTERING
+// =============================================================================
 
-  log_habit_completion: {
-    name: "log_habit_completion",
-    description: "Log completion status for a daily habit or routine.",
-    isReadOnly: false,
-    parameters: {
-      type: "object",
-      properties: {
-        habitId: { type: "string", description: "ID of the habit to mark" },
-        date: { type: "string", description: "ISO date string or YYYY-MM-DD" },
-        completed: { type: "string", description: "Completion status ('true' or 'false')" },
-      },
-      required: ["habitId"],
-    },
-    execute: async (userId, args) => {
-      const habit = await prisma.habit.findFirst({
-        where: { id: args.habitId, userId },
-      });
-      if (!habit) throw new Error("Habit not found or unauthorized");
-
-      const dateStr = args.date ? args.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
-      const isCompleted = args.completed === "false" ? false : true;
-
-      const log = await prisma.habitLog.upsert({
-        where: {
-          habitId_dateString: {
-            habitId: habit.id,
-            dateString: dateStr,
-          },
-        },
-        create: {
-          habitId: habit.id,
-          dateString: dateStr,
-          completed: isCompleted,
-        },
-        update: {
-          completed: isCompleted,
-        },
-      });
-
-      return { success: true, message: `Habit "${habit.name}" logged.`, log };
-    },
-  },
-
-  record_syllabus_revision: {
-    name: "record_syllabus_revision",
-    description: "Record a spaced-repetition revision session for an academic syllabus topic using SM-2.",
-    isReadOnly: false,
-    parameters: {
-      type: "object",
-      properties: {
-        topicId: { type: "string", description: "ID of the syllabus topic" },
-        quality: { type: "string", description: "Recall rating from 1 (blackout) to 5 (perfect recall)" },
-      },
-      required: ["topicId", "quality"],
-    },
-    execute: async (userId, args) => {
-      const topic = await prisma.syllabusTopic.findFirst({
-        where: { id: args.topicId, unit: { course: { userId } } },
-        include: { revisionRecords: { orderBy: { studiedAt: "desc" }, take: 1 } },
-      });
-      if (!topic) throw new Error("Syllabus topic not found or unauthorized");
-
-      const qualityNum = parseInt(args.quality, 10) || 3;
-      const lastRec = topic.revisionRecords[0];
-      const prevEase = lastRec ? lastRec.easeFactor : 2.5;
-      const prevInterval = lastRec ? lastRec.intervalDays : 1;
-
-      const sm2 = calculateSM2({
-        rating: qualityNum,
-        repetitions: topic.revisionCount,
-        intervalDays: prevInterval,
-        easeFactor: prevEase,
-      });
-
-      await prisma.revisionRecord.create({
-        data: {
-          topicId: topic.id,
-          rating: qualityNum,
-          intervalDays: sm2.intervalDays,
-          easeFactor: sm2.easeFactor,
-        },
-      });
-
-      const updated = await prisma.syllabusTopic.update({
-        where: { id: topic.id },
-        data: {
-          lastStudiedAt: new Date(),
-          nextRevisionAt: sm2.nextReviewDate,
-          revisionCount: topic.revisionCount + 1,
-          confidenceLevel: Math.min(5, Math.max(1, qualityNum)),
-          status: sm2.repetitions >= 3 ? "MASTERED" : sm2.repetitions > 0 ? "REVISED" : "IN_PROGRESS",
-        },
-      });
-
-      return {
-        success: true,
-        message: `Topic "${updated.title}" revision recorded. Next review in ${sm2.intervalDays} day(s).`,
-        topic: updated,
-      };
-    },
-  },
-
-  trigger_workflow: {
-    name: "trigger_workflow",
-    description: "Trigger an authorized student automation workflow (e.g. daily review consolidation).",
-    isReadOnly: false,
-    parameters: {
-      type: "object",
-      properties: {
-        automationId: { type: "string", description: "Automation rule ID" },
-      },
-      required: ["automationId"],
-    },
-    execute: async (userId, args) => {
-      const auto = await prisma.automation.findFirst({
-        where: { id: args.automationId, userId },
-      });
-      if (!auto) throw new Error("Automation not found or unauthorized");
-
-      const execution = await prisma.automationExecution.create({
-        data: {
-          automationId: auto.id,
-          status: "SUCCESS",
-          triggerPayload: JSON.stringify({ triggeredBy: "AI Assistant" }),
-          stepsResultJson: JSON.stringify({ message: "Executed successfully via Assistant tool." }),
-        },
-      });
-
-      return { success: true, message: `Workflow "${auto.name}" executed.`, executionId: execution.id };
-    },
-  },
-
-  get_dashboard_sections: {
-    name: "get_dashboard_sections",
-    description: "Retrieve all customized sections, folders, and resources currently on the student's dashboard.",
-    isReadOnly: true,
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-    execute: async (userId) => {
-      const sections = await prisma.customDashboardSection.findMany({
-        where: { userId },
-        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-      });
-      return sections.map((s) => ({
-        id: s.id,
-        title: s.title,
-        description: s.description,
-        folders: JSON.parse(s.itemsJson || "[]"),
-      }));
-    },
-  },
-
-  customize_dashboard_section: {
-    name: "customize_dashboard_section",
-    description: "Create, update, or add folders and links to a section on the student's dashboard (e.g. creating a 'Resources' section with folders for 'Video Links', 'Online Materials', 'Books', 'Information').",
-    isReadOnly: false,
-    parameters: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Title of the dashboard section (e.g. 'Resources', 'Study Hub', 'Quick Links')" },
-        description: { type: "string", description: "Helpful subtitle or description for this section" },
-        folders: { type: "string", description: "Comma-separated list of folder names to create inside this section (e.g. 'Video Links, Online Materials, Books, Information')" },
-        action: { type: "string", description: "Action to perform", enum: ["CREATE", "UPDATE", "DELETE"] },
-      },
-      required: ["title"],
-    },
-    execute: async (userId, args) => {
-      const title = args.title?.trim();
-      const action = args.action || "CREATE";
-
-      if (action === "DELETE") {
-        await prisma.customDashboardSection.deleteMany({
-          where: { userId, title },
-        });
-        return { success: true, message: `Section "${title}" removed from dashboard.` };
-      }
-
-      // Parse folder names
-      let initialFolders: any[] = [];
-      if (args.folders) {
-        const folderNames = args.folders.split(",").map((f: string) => f.trim()).filter(Boolean);
-        initialFolders = folderNames.map((f: string, idx: number) => ({
-          id: `folder_${Date.now()}_${idx}`,
-          title: f,
-          type: "folder",
-          description: `Curated ${f}`,
-          links: [],
-        }));
-      } else {
-        initialFolders = [
-          { id: `folder_${Date.now()}_0`, title: "General", type: "folder", description: "General materials", links: [] },
-        ];
-      }
-
-      const existing = await prisma.customDashboardSection.findFirst({
-        where: { userId, title },
-      });
-
-      let section;
-      if (existing) {
-        // Merge or update folders
-        const existingFolders = JSON.parse(existing.itemsJson || "[]");
-        const existingTitles = new Set(existingFolders.map((ef: any) => ef.title.toLowerCase()));
-        for (const nf of initialFolders) {
-          if (!existingTitles.has(nf.title.toLowerCase())) {
-            existingFolders.push(nf);
-          }
-        }
-        section = await prisma.customDashboardSection.update({
-          where: { id: existing.id },
-          data: {
-            itemsJson: JSON.stringify(existingFolders),
-            ...(args.description && { description: args.description.trim() }),
-          },
-        });
-      } else {
-        section = await prisma.customDashboardSection.create({
-          data: {
-            userId,
-            title,
-            description: args.description?.trim() || "Custom student resources and curated study folders",
-            category: "resources",
-            icon: "Folder",
-            itemsJson: JSON.stringify(initialFolders),
-          },
-        });
-      }
-
-      return {
-        success: true,
-        message: `Section "${section.title}" created with folders: ${initialFolders.map((f: any) => f.title).join(", ")}. It is now live on your dashboard!`,
-        sectionId: section.id,
-      };
-    },
-  },
-
-  search_web: {
-    name: "search_web",
-    description: "Search across websites and the live internet for real-time information, documentation, news, academic topics, tutorials, and facts.",
-    isReadOnly: true,
-    parameters: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Search query or keywords to search the internet for" },
-        limit: { type: "number", description: "Maximum number of search results (default 5)" },
-      },
-      required: ["query"],
-    },
-    execute: async (_userId, args) => {
-      return await performWebSearch(args.query, Number(args.limit) || 5);
-    },
-  },
-
-  fetch_webpage_content: {
-    name: "fetch_webpage_content",
-    description: "Fetch and read the readable text content of a specific webpage or website URL.",
-    isReadOnly: true,
-    parameters: {
-      type: "object",
-      properties: {
-        url: { type: "string", description: "The full http/https URL of the webpage to fetch and read" },
-      },
-      required: ["url"],
-    },
-    execute: async (_userId, args) => {
-      return await fetchWebpage(args.url);
-    },
-  },
+export const ALL_TOOLS: Record<string, ToolDefinition> = {
+  ...APPLICATION_TOOLS,
+  ...RESEARCH_TOOLS,
 };
 
 /**
- * HTML entity decoder helper
+ * Returns strictly authorized tools for the specified intent.
+ * Guarantees web research tools are never passed during application operations,
+ * and application mutation tools are never passed during web research or general chat.
  */
-function decodeHtmlEntities(str: string): string {
-  return str
-    .replace(/&#x27;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
+export function getToolsForIntent(intent: string): Record<string, ToolDefinition> {
+  const pureAppTools = Object.fromEntries(
+    Object.entries(APPLICATION_TOOLS).filter(
+      ([name]) => !["search_web", "fetch_webpage_content", "search_research_papers"].includes(name)
+    )
+  );
+
+  switch (intent) {
+    case "application_action":
+      return pureAppTools;
+    case "task_management":
+      return {
+        get_tasks: APPLICATION_TOOLS.get_tasks,
+        search_tasks: APPLICATION_TOOLS.search_tasks,
+        create_task: APPLICATION_TOOLS.create_task,
+        update_task: APPLICATION_TOOLS.update_task,
+        update_task_status: APPLICATION_TOOLS.update_task_status,
+        delete_task: APPLICATION_TOOLS.delete_task,
+        create_reminder: APPLICATION_TOOLS.create_reminder,
+        get_schedule: APPLICATION_TOOLS.get_schedule,
+      };
+    case "application_query":
+      return Object.fromEntries(
+        Object.entries(pureAppTools).filter(([_, tool]) => tool.isReadOnly)
+      );
+    case "knowledge_query":
+      return {
+        search_notes: APPLICATION_TOOLS.search_notes,
+        get_academic_records: APPLICATION_TOOLS.get_academic_records,
+      };
+    case "web_research":
+      return RESEARCH_TOOLS;
+    case "general_chat":
+    case "clarification_required":
+    default:
+      return {};
+  }
 }
 
+// =============================================================================
+// WEB SEARCH IMPLEMENTATION WITH CLEAN PARSING & RELEVANCE
+// =============================================================================
+
 /**
- * Searches YouTube directly for public video links and tutorials
+ * Searches YouTube for public video links and tutorials
  */
-async function searchYouTube(query: string, limit = 5): Promise<Array<{ title: string; url: string; snippet: string }>> {
+async function searchYouTube(
+  query: string,
+  limit = 5
+): Promise<Array<{ title: string; url: string; snippet: string }>> {
   try {
     const cleanQ = query.replace(/^(youtube|video|videos|link|links|find|search for)\s+/gi, "").trim();
     const res = await fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(cleanQ || query)}`, {
@@ -697,70 +1054,78 @@ async function searchYouTube(query: string, limit = 5): Promise<Array<{ title: s
 }
 
 /**
- * Searches the live web using YouTube, DuckDuckGo Lite, and Wikipedia
+ * Searches the live web using DuckDuckGo Lite and Wikipedia with strict entity decoding
  */
 async function performWebSearch(query: string, limit = 5): Promise<any> {
   const cleanQuery = query.trim();
   const lowerQ = cleanQuery.toLowerCase();
   let results: Array<{ title: string; url: string; snippet: string }> = [];
 
-  // 1. If user asks for YouTube or video tutorials, query YouTube directly
-  if (lowerQ.includes("youtube") || lowerQ.includes("video") || lowerQ.includes("lecture") || lowerQ.includes("tutorial")) {
+  // 1. YouTube direct search if looking for videos or lectures
+  if (
+    lowerQ.includes("youtube") ||
+    lowerQ.includes("video") ||
+    lowerQ.includes("lecture") ||
+    lowerQ.includes("tutorial")
+  ) {
     const ytResults = await searchYouTube(cleanQuery, limit);
     if (ytResults.length > 0) {
       results = ytResults;
     }
   }
 
-  // 2. DuckDuckGo Lite search if not enough results
+  // 2. DuckDuckGo Lite search
   if (results.length < limit) {
     try {
       const res = await fetch("https://lite.duckduckgo.com/lite/", {
-      method: "POST",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: `q=${encodeURIComponent(cleanQuery)}`,
-      signal: AbortSignal.timeout(6000),
-    });
+        method: "POST",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: `q=${encodeURIComponent(cleanQuery)}`,
+        signal: AbortSignal.timeout(6000),
+      });
 
-    if (res.ok) {
-      const html = await res.text();
-      const linkMatches = [
-        ...html.matchAll(
-          /<a[^>]*href=["']([^"']+)["'][^>]*class=["']result-link["'][^>]*>(.*?)<\/a>/gis
-        ),
-      ];
-      const snippetMatches = [
-        ...html.matchAll(/<td[^>]*class=["']result-snippet["'][^>]*>(.*?)<\/td>/gis),
-      ];
+      if (res.ok) {
+        const html = await res.text();
+        const linkMatches = [
+          ...html.matchAll(
+            /<a[^>]*href=["']([^"']+)["'][^>]*class=["']result-link["'][^>]*>(.*?)<\/a>/gis
+          ),
+        ];
+        const snippetMatches = [
+          ...html.matchAll(/<td[^>]*class=["']result-snippet["'][^>]*>(.*?)<\/td>/gis),
+        ];
 
-      for (let i = 0; i < Math.min(limit, linkMatches.length); i++) {
-        const rawUrl = linkMatches[i][1];
-        let url = rawUrl;
-        if (rawUrl.includes("uddg=")) {
-          const m = rawUrl.match(/uddg=([^&]+)/);
-          if (m) url = decodeURIComponent(m[1]);
-        } else if (rawUrl.startsWith("//")) {
-          url = "https:" + rawUrl;
-        }
+        for (let i = 0; i < Math.min(limit, linkMatches.length); i++) {
+          const rawUrl = linkMatches[i][1];
+          let url = rawUrl;
+          if (rawUrl.includes("uddg=")) {
+            const m = rawUrl.match(/uddg=([^&]+)/);
+            if (m) url = decodeURIComponent(m[1]);
+          } else if (rawUrl.startsWith("//")) {
+            url = "https:" + rawUrl;
+          }
 
-        const title = decodeHtmlEntities(linkMatches[i][2].replace(/<[^>]+>/g, "").trim());
-        const snippet = snippetMatches[i]
-          ? decodeHtmlEntities(snippetMatches[i][1].replace(/<[^>]+>/g, "").trim())
-          : "";
+          const rawTitle = linkMatches[i][2].replace(/<[^>]+>/g, "").trim();
+          const rawSnippet = snippetMatches[i]
+            ? snippetMatches[i][1].replace(/<[^>]+>/g, "").trim()
+            : "";
 
-        if (title && url) {
-          results.push({ title, url, snippet });
+          const title = decodeHtmlEntities(rawTitle);
+          const snippet = decodeHtmlEntities(rawSnippet);
+
+          if (title && url && (url.startsWith("http://") || url.startsWith("https://"))) {
+            results.push({ title, url, snippet });
+          }
         }
       }
-    }
-  } catch {}
+    } catch {}
   }
 
-  // 3. Fallback to Wikipedia search API if empty
+  // 3. Fallback to Wikipedia search API if needed
   if (results.length === 0) {
     try {
       const wikiRes = await fetch(
@@ -812,7 +1177,6 @@ async function fetchWebpage(targetUrl: string): Promise<any> {
     const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
     const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : "Webpage";
 
-    // Clean text: strip scripts, styles, tags, excessive whitespace
     const cleanText = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
       .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")

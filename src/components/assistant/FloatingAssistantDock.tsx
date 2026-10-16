@@ -22,6 +22,7 @@ import { AssistantState } from "./types";
 import { AutonomousBehaviorEngine } from "./AutonomousBehaviorEngine";
 import { ToolConfirmationCard, type PendingTool } from "./ToolConfirmationCard";
 import { ToolResultCard } from "./ToolResultCard";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface MessageItem {
   id?: string;
@@ -292,7 +293,11 @@ export function FloatingAssistantDock() {
                       : "bg-white/[0.05] border border-white/10 text-slate-200"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{m.content}</p>
+                  {m.role === "user" ? (
+                    <p className="whitespace-pre-wrap">{m.content}</p>
+                  ) : (
+                    <MarkdownRenderer content={m.content} />
+                  )}
                   {m.executedToolResults && m.executedToolResults.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-white/10">
                       {m.executedToolResults.map((tr, idx) => (

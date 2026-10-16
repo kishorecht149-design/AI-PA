@@ -39,6 +39,7 @@ import { AssistantState } from "@/components/assistant/types";
 import { AutonomousBehaviorEngine } from "@/components/assistant/AutonomousBehaviorEngine";
 import { ToolConfirmationCard, type PendingTool } from "@/components/assistant/ToolConfirmationCard";
 import { ToolResultCard } from "@/components/assistant/ToolResultCard";
+import { MarkdownRenderer } from "@/components/assistant/MarkdownRenderer";
 
 interface MessageItem {
   id?: string;
@@ -859,7 +860,11 @@ export default function AssistantPage() {
                       : "bg-white/[0.04] hover:bg-white/[0.06] border border-white/10 text-slate-200 shadow-sm"
                   }`}
                 >
-                  {renderMessageContent(msg.content, i)}
+                  {msg.role === "user" ? (
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                  ) : (
+                    <MarkdownRenderer content={msg.content} />
+                  )}
 
                   {/* Render executed tool results if attached */}
                   {msg.executedToolResults && msg.executedToolResults.length > 0 && (
