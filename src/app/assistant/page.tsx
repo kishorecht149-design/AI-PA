@@ -37,18 +37,22 @@ import { AmahAsAvatar } from "@/components/assistant/AmahAsAvatar";
 import { AvatarControls } from "@/components/assistant/AvatarControls";
 import { AssistantState } from "@/components/assistant/types";
 import { AutonomousBehaviorEngine } from "@/components/assistant/AutonomousBehaviorEngine";
+import { ToolConfirmationCard, type PendingTool } from "@/components/assistant/ToolConfirmationCard";
+import { ToolResultCard } from "@/components/assistant/ToolResultCard";
 
 interface MessageItem {
   id?: string;
   role: "user" | "assistant" | "system";
   content: string;
   toolCallsJson?: string | null;
+  executedToolResults?: Array<{ toolName: string; result: any }>;
 }
 
 interface PendingToolConfirmation {
   toolName: string;
   args: any;
-  callId: string;
+  callId?: string;
+  idempotencyKey?: string;
 }
 
 const QUICK_PROMPTS = [
@@ -63,6 +67,8 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [input, setInput] = useState("");
   const [modelId, setModelId] = useState("openrouter/free");
+  const [modelOptions, setModelOptions] = useState<Array<{ id: string; name: string; isLocal?: boolean }>>(KNOWN_FREE_MODELS);
+  const [ollamaActive, setOllamaActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [memories, setMemories] = useState<any[]>([]);
   const [showMemoryDrawer, setShowMemoryDrawer] = useState(false);
@@ -156,6 +162,17 @@ export default function AssistantPage() {
         if (d.memories) setMemories(d.memories);
       })
       .catch((err) => console.error("[Assistant] Initial load error:", err));
+
+    // Dynamic model discovery (probe local Ollama daemon & cloud routes)
+    fetch("/api/assistant/models")
+      .then((res) => res.json())
+      .then((d) => {
+        if (d.localModels && d.cloudModels) {
+          setModelOptions([...d.localModels, ...d.cloudModels]);
+          setOllamaActive(Boolean(d.ollamaAvailable));
+        }
+      })
+      .catch((err) => console.warn("[Assistant] Model discovery notice:", err));
   }, []);
 
   useEffect(() => {
@@ -250,7 +267,13 @@ export default function AssistantPage() {
       }
 
       if (data?.message) {
-        setMessages((prev) => [...prev, data.message]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            ...data.message,
+            executedToolResults: data.executedToolResults,
+          },
+        ]);
 
         // Route autonomous behavior through the AI director
         if (engineRef.current) {
@@ -302,6 +325,7 @@ export default function AssistantPage() {
           toolName: call.function?.name,
           args: JSON.parse(call.function?.arguments || "{}"),
           callId: call.id,
+          idempotencyKey: `tool_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
         });
       }
     } catch (err: any) {
@@ -332,9 +356,9 @@ export default function AssistantPage() {
     }
   };
 
-  const handleConfirmTool = async (approve: boolean) => {
-    if (!pendingTool) return;
-    const toolToRun = pendingTool;
+  const handleConfirmTool = async (approve: boolean, toolOverride?: PendingTool) => {
+    const toolToRun = toolOverride || pendingTool;
+    if (!toolToRun) return;
     setPendingTool(null);
 
     if (!approve) {
@@ -349,6 +373,9 @@ export default function AssistantPage() {
     }
 
     try {
+      const idempotencyKey =
+        toolToRun.idempotencyKey ||
+        `tool_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -356,12 +383,18 @@ export default function AssistantPage() {
           executeConfirmedTool: {
             toolName: toolToRun.toolName,
             args: toolToRun.args,
+            idempotencyKey,
           },
         }),
       });
 
       const data = await res.json();
       if (data.success) {
+        // Automatically refresh user tasks if task-related mutation
+        if (["create_task", "update_task_status", "delete_task"].includes(toolToRun.toolName)) {
+          fetchUserTasks();
+        }
+
         const messageText = `Confirmed & Executed: ${
           data.toolResult?.message || "Operation completed successfully."
         }`;
@@ -370,6 +403,7 @@ export default function AssistantPage() {
           {
             role: "assistant",
             content: messageText,
+            executedToolResults: [{ toolName: toolToRun.toolName, result: data.toolResult }],
           },
         ]);
         if (engineRef.current) {
@@ -378,12 +412,19 @@ export default function AssistantPage() {
             isSuccess: true,
           });
         }
+      } else {
+        throw new Error(data.error || "Execution failed.");
       }
     } catch (e: any) {
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: `Execution failed: ${e.message}` },
       ]);
+      if (engineRef.current) {
+        engineRef.current.onResponseReceived({
+          isError: true,
+        });
+      }
     }
   };
 
@@ -567,11 +608,26 @@ export default function AssistantPage() {
               onChange={(e) => setModelId(e.target.value)}
               className="bg-[#0b1120] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 font-mono transition-colors"
             >
-              {KNOWN_FREE_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name.length > 34 ? m.name.substring(0, 32) + "…" : m.name}
-                </option>
-              ))}
+              {modelOptions.some((m) => m.isLocal) && (
+                <optgroup label="Local Models (Ollama - Private)">
+                  {modelOptions
+                    .filter((m) => m.isLocal)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        ⚡ {m.name}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+              <optgroup label="Cloud Free Models (OpenRouter)">
+                {modelOptions
+                  .filter((m) => !m.isLocal)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      ☁️ {m.name.length > 34 ? m.name.substring(0, 32) + "…" : m.name}
+                    </option>
+                  ))}
+              </optgroup>
             </select>
           </div>
 
@@ -694,6 +750,14 @@ export default function AssistantPage() {
                 Dance Flourish
               </div>
             )}
+
+            {/* Engine Type Status Pill */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10 text-[11px] font-mono">
+              <span className={`w-1.5 h-1.5 rounded-full ${modelId.startsWith("ollama/") ? "bg-emerald-400 animate-pulse" : "bg-cyan-400"}`} />
+              <span className="text-slate-300">
+                {modelId.startsWith("ollama/") ? "Local Ollama" : "Cloud Gateway"}
+              </span>
+            </div>
           </div>
 
           {/* 3D Character Viewport with Floor Glow */}
@@ -796,37 +860,25 @@ export default function AssistantPage() {
                   }`}
                 >
                   {renderMessageContent(msg.content, i)}
+
+                  {/* Render executed tool results if attached */}
+                  {msg.executedToolResults && msg.executedToolResults.length > 0 && (
+                    <div className="mt-2.5 pt-2 border-t border-white/10 space-y-2">
+                      {msg.executedToolResults.map((tr, idx) => (
+                        <ToolResultCard key={idx} toolName={tr.toolName} result={tr.result} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
 
             {/* Permission Review Card for mutating tool actions */}
             {pendingTool && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-3 animate-message-in">
-                <div className="flex items-center gap-2 font-bold text-amber-400">
-                  <Lock className="w-4 h-4 animate-bounce" /> Permission Review: Action Requires Approval
-                </div>
-                <p className="text-slate-300 leading-relaxed">
-                  The assistant proposes to execute tool <strong>{pendingTool.toolName}</strong> with arguments:
-                </p>
-                <pre className="p-2.5 rounded-lg bg-black/50 border border-white/5 text-[11px] font-mono overflow-x-auto text-amber-300">
-                  {JSON.stringify(pendingTool.args, null, 2)}
-                </pre>
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  <button
-                    onClick={() => handleConfirmTool(false)}
-                    className="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 text-xs font-medium transition-colors"
-                  >
-                    Reject Action
-                  </button>
-                  <button
-                    onClick={() => handleConfirmTool(true)}
-                    className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs transition-colors shadow-md shadow-cyan-500/20"
-                  >
-                    <Check className="w-3.5 h-3.5" /> Approve &amp; Execute
-                  </button>
-                </div>
-              </div>
+              <ToolConfirmationCard
+                tool={pendingTool}
+                onConfirm={handleConfirmTool}
+              />
             )}
 
             {/* Holographic Synthesizing Indicator Card */}

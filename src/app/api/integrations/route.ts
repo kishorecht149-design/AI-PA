@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
 import { CONNECTOR_CATALOG, testConnector } from "@/lib/integrations/connectors";
+import { FUTURE_SERVICE_REGISTRY } from "@/lib/integrations/registry";
 
 export async function GET() {
   try {
@@ -12,10 +13,10 @@ export async function GET() {
       where: { userId },
     });
 
-    const statusMap = new Map(accounts.map((a) => [a.provider, a]));
+    const statusMap = new Map(accounts.map((a) => [a.provider.toUpperCase(), a]));
 
     const connectors = CONNECTOR_CATALOG.map((meta) => {
-      const account = statusMap.get(meta.provider);
+      const account = statusMap.get(meta.provider.toUpperCase());
       return {
         ...meta,
         status: account?.status || "NOT_CONFIGURED",
@@ -24,7 +25,18 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ connectors });
+    const companionServices = Object.values(FUTURE_SERVICE_REGISTRY).map((service) => {
+      const account = statusMap.get(service.id.toUpperCase());
+      return {
+        ...service,
+        status: account?.status || (service.id === "ollama" ? "AVAILABLE" : "DISABLED_BY_DEFAULT"),
+        endpointUrl: account?.endpointUrl || (service.id === "ollama" ? "http://localhost:11434" : undefined),
+        lastSyncAt: account?.lastSyncAt,
+        lastError: account?.lastError,
+      };
+    });
+
+    return NextResponse.json({ connectors, companionServices });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

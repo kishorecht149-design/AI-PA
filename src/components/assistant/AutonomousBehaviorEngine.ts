@@ -19,6 +19,8 @@ export class AutonomousBehaviorEngine {
   private headBone: ThreeType.Bone | null = null;
   private neckBone: ThreeType.Bone | null = null;
   private spineBone: ThreeType.Bone | null = null;
+  private jawBone: ThreeType.Bone | null = null;
+  private speakingTime: number = 0;
 
   // Layer 1 (Procedural Life) state
   private isTabVisible: boolean = true;
@@ -66,6 +68,12 @@ export class AutonomousBehaviorEngine {
       this.neckBone = bonesMap["mixamorigNeck"] || null;
       this.spineBone =
         bonesMap["mixamorigSpine"] || bonesMap["mixamorigSpine1"] || null;
+      this.jawBone =
+        bonesMap["mixamorigJaw"] ||
+        bonesMap["Jaw"] ||
+        bonesMap["jaw"] ||
+        bonesMap["mixamorigHead_Top_End"] ||
+        null;
 
       if (this.headBone) {
         this.restHeadQuat = {
@@ -135,8 +143,45 @@ export class AutonomousBehaviorEngine {
           }
         }
       }
+    } else if (this.currentState === "speaking" || this.currentState === "explaining") {
+      this.idleTimer = 0;
+      this.speakingTime += deltaSeconds;
+
+      // Conversational speaking cadence on head & neck (multi-frequency syllable rhythm)
+      if (this.headBone) {
+        const syllablePitch =
+          Math.sin(this.speakingTime * 18.0) * 0.028 +
+          Math.sin(this.speakingTime * 6.5) * 0.018;
+        const speechYaw = Math.sin(this.speakingTime * 3.2) * 0.02;
+
+        this.headBone.rotation.x += (syllablePitch - this.headBone.rotation.x) * 0.15;
+        this.headBone.rotation.y += (speechYaw - this.headBone.rotation.y) * 0.1;
+      }
+
+      if (this.neckBone) {
+        const neckPitch = Math.sin(this.speakingTime * 12.0) * 0.015;
+        this.neckBone.rotation.x += (neckPitch - this.neckBone.rotation.x) * 0.12;
+      }
+
+      // Procedural jaw viseme oscillation
+      if (this.jawBone) {
+        const jawOpen =
+          Math.max(0, Math.sin(this.speakingTime * 16.0)) * 0.06 +
+          Math.max(0, Math.sin(this.speakingTime * 8.0)) * 0.03;
+        this.jawBone.rotation.x += (jawOpen - this.jawBone.rotation.x) * 0.22;
+      }
+
+      // Subtle torso conversational emphasis
+      if (this.spineBone) {
+        const torsoEmphasis = 0.03 + Math.sin(this.speakingTime * 2.8) * 0.012;
+        this.spineBone.rotation.x += (torsoEmphasis - this.spineBone.rotation.x) * 0.08;
+      }
     } else {
       this.idleTimer = 0;
+      this.speakingTime = 0;
+      if (this.jawBone) {
+        this.jawBone.rotation.x += (0 - this.jawBone.rotation.x) * 0.15;
+      }
     }
   }
 
