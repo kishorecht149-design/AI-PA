@@ -17,13 +17,20 @@ export async function GET() {
     });
 
     const enhanced = projects.map((p) => {
-      const totalTasks = p.tasks.length;
+      const taskCount = p.tasks.length;
       const completedTasks = p.tasks.filter((t) => t.status === "COMPLETED").length;
-      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const milestoneCount = p.milestones ? p.milestones.length : 0;
+      const completedMilestones = p.milestones ? p.milestones.filter((m: any) => m.completed).length : 0;
+
+      const totalUnits = taskCount + milestoneCount;
+      const completedUnits = completedTasks + completedMilestones;
+      const progress = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
       return {
         ...p,
-        totalTasks,
+        totalTasks: taskCount,
         completedTasks,
+        totalMilestones: milestoneCount,
+        completedMilestones,
         calculatedProgress: progress,
       };
     });

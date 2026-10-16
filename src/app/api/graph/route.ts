@@ -399,12 +399,17 @@ export async function GET() {
       starter.links.forEach(addLink);
     }
 
+    // Strict validation: every relationship must connect two existing nodes
+    const validLinks = links.filter(
+      (l) => existingNodeIds.has(l.source) && existingNodeIds.has(l.target) && l.source !== l.target
+    );
+
     return NextResponse.json({
       nodes,
-      links,
+      links: validLinks,
       stats: {
         totalNodes: nodes.length,
-        totalLinks: links.length,
+        totalLinks: validLinks.length,
         papersCount: nodes.filter((n) => n.type === "paper").length,
         topicsCount: nodes.filter((n) => n.type === "topic").length,
         projectsCount: nodes.filter((n) => n.type === "project").length,

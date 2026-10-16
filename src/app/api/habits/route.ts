@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
+import { eventBus } from "@/lib/events";
 
 export async function GET() {
   try {
@@ -69,6 +70,11 @@ export async function POST(req: Request) {
     const habit = await prisma.habit.findFirst({ where: { id: habitId, userId } });
     if (!habit) return NextResponse.json({ error: "Habit not found" }, { status: 404 });
 
+    const existingLog = await prisma.habitLog.findUnique({
+      where: { habitId_dateString: { habitId, dateString: todayStr } },
+    });
+    const wasAlreadyCompleted = existingLog?.completed === true;
+
     const log = await prisma.habitLog.upsert({
       where: {
         habitId_dateString: { habitId, dateString: todayStr },
@@ -85,15 +91,31 @@ export async function POST(req: Request) {
       },
     });
 
-    // Update streak
-    const newStreak = completed ? habit.currentStreak + 1 : Math.max(0, habit.currentStreak - 1);
-    await prisma.habit.update({
-      where: { id: habitId },
-      data: {
-        currentStreak: newStreak,
-        longestStreak: Math.max(habit.longestStreak, newStreak),
-      },
-    });
+    // Update streak idempotently: only adjust when completion state genuinely changes
+    let newStreak = habit.currentStreak;
+    if (completed && !wasAlreadyCompleted) {
+      newStreak = habit.currentStreak + 1;
+    } else if (!completed && wasAlreadyCompleted) {
+      newStreak = Math.max(0, habit.currentStreak - 1);
+    }
+
+    if (newStreak !== habit.currentStreak) {
+      await prisma.habit.update({
+        where: { id: habitId },
+        data: {
+          currentStreak: newStreak,
+          longestStreak: Math.max(habit.longestStreak, newStreak),
+        },
+      });
+    }
+
+    if (completed && !wasAlreadyCompleted) {
+      eventBus.publish("habit.completed", habitId, userId, {
+        habitId,
+        habitName: habit.name,
+        dateString: todayStr,
+      });
+    }
 
     return NextResponse.json({ success: true, log });
   } catch (err: any) {

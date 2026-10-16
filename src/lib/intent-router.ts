@@ -21,12 +21,14 @@ export type IntentType =
   | "application_action"
   | "task_management"
   | "knowledge_query"
-  | "clarification_required";
+  | "clarification_required"
+  | "application_navigation"
+  | "unsupported_action";
 
 export interface IntentRouteResult {
   intent: IntentType;
   confidence: number;
-  targetDomain?: "academics" | "tasks" | "reminders" | "notes" | "schedule" | "dashboard" | "general";
+  targetDomain?: "academics" | "tasks" | "reminders" | "notes" | "schedule" | "dashboard" | "general" | string;
   clarificationMessage?: string;
   allowedToolNames: string[];
   extractedEntity?: {
@@ -95,19 +97,39 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
     };
   }
 
-  // 2. Generic add course without parameter -> CLARIFICATION_REQUIRED
-  // Examples: "Add a course to my plan", "Add a course", "Create a course"
-  if (
-    /^(add|create|register|enroll|put)\s+(a\s+)?(new\s+)?(course|subject|class)(\s+to\s+my\s+(plan|courses|schedule))?$/i.test(
+  // 1.5 APPLICATION_NAVIGATION — Instant workspace navigation
+  // Examples: "Go to Academics", "Open Planner", "Navigate to Focus Arena", "Take me to tasks"
+  const isNavigation =
+    /^(go\s+to|open|navigate\s+to|take\s+me\s+to|switch\s+to|show\s+me)\s+(the\s+)?(academics|planner|focus|tasks|notes|research|graph|habits|goals|reminders|settings|automations|integrations|dashboard)(\s+page|\s+tab|\s+section)?$/i.test(
       lower
-    )
+    );
+  if (isNavigation) {
+    const navMatch = lower.match(/(academics|planner|focus|tasks|notes|research|graph|habits|goals|reminders|settings|automations|integrations|dashboard)/i);
+    const navTarget = navMatch ? navMatch[1].toLowerCase() : "dashboard";
+    return {
+      intent: "application_navigation",
+      confidence: 0.98,
+      targetDomain: (navTarget as any) || "general",
+      allowedToolNames: [],
+      clarificationMessage: `Navigating to /${navTarget}...`,
+      reason: `Direct navigation request to ${navTarget}.`,
+    };
+  }
+
+  // 2. Generic add course without parameter -> CLARIFICATION_REQUIRED
+  // Examples: "Add a course to my plan", "Add a course", "Create a course", "Add a course to Academics."
+  if (
+    /^(add|create|register|enroll|put)\s+(a\s+)?(new\s+)?(course|subject|class)(\s+to\s+(my\s+)?(plan|courses?|schedule|academics?))?$/i.test(
+      lower
+    ) ||
+    /^(add|put)\s+(a\s+)?course\s+in(to)?\s+academics?$/i.test(lower)
   ) {
     return {
       intent: "clarification_required",
       confidence: 0.95,
       targetDomain: "academics",
       clarificationMessage:
-        "What is the title or course code of the subject you would like to add? (For example: *\"Add Antennas and Wave Propagation (EC402) to my academic plan\"*).",
+        "What is the title or course code of the subject you would like to add to Academics? (For example: *\"Add Antennas and Wave Propagation (EC402) to my academic plan\"*).",
       allowedToolNames: ["create_academic_record", "get_academic_records"],
       reason: "Request to add a course without specifying the course name or code.",
     };
@@ -117,18 +139,18 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
   // Examples: "Add Antennas and Wave Propagation to my academic plan", "Create course EC302"
   const addCourseMatch =
     message.match(
-      /(?:add|create|register|enroll|put)\s+(?:course|subject|class)\s+['"]?([^'"]+?)['"]?(?:\s+to\s+my\s+(?:academic\s+)?(?:plan|courses|schedule))?$/i
+      /(?:add|create|register|enroll|put)\s+(?:course|subject|class)\s+['"]?([^'"]+?)['"]?(?:\s+to\s+(?:my\s+)?(?:academic\s+)?(?:plan|courses|schedule|academics))?$/i
     ) ||
     message.match(
-      /(?:add|create|register)\s+['"]?([a-zA-Z0-9\s,&-]+?)['"]?\s+(?:as\s+(?:a\s+)?(?:course|subject)|to\s+my\s+(?:academic\s+)?(?:plan|courses|schedule))$/i
+      /(?:add|create|register)\s+['"]?([a-zA-Z0-9\s,&-]+?)['"]?\s+(?:as\s+(?:a\s+)?(?:course|subject)|to\s+(?:my\s+)?(?:academic\s+)?(?:plan|courses|schedule|academics))$/i
     ) ||
-    message.match(/^add\s+([a-zA-Z0-9\s,&-]+?)\s+to\s+(?:my\s+)?(?:academic\s+plan|courses)$/i);
+    message.match(/^add\s+([a-zA-Z0-9\s,&-]+?)\s+to\s+(?:my\s+)?(?:academic\s+plan|courses|academics)$/i);
 
   if (addCourseMatch) {
     const courseName = addCourseMatch[1].trim();
     // Verify it's not a placeholder
     const lowerName = courseName.toLowerCase();
-    if (courseName && !["a course", "course", "subject", "a subject", "a class", "class"].includes(lowerName)) {
+    if (courseName && !["a course", "course", "subject", "a subject", "a class", "class", "academics"].includes(lowerName)) {
       return {
         intent: "application_action",
         confidence: 0.98,
@@ -164,14 +186,16 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
   }
 
   // 4. APPLICATION_QUERY — Reading Academics (Courses, Syllabus, Progress)
-  // Examples: "What courses am I currently studying?", "Show my academic plan", "What is my syllabus progress?"
+  // Examples: "What courses am I currently studying?", "Show my academic plan", "What is my syllabus progress?", "Show my current academic progress."
   const isAcademicQuery =
     /what\s+courses\s+(am\s+i|do\s+i|are\s+in)/i.test(lower) ||
     /list\s+(my\s+)?courses/i.test(lower) ||
     /(show|get|view)\s+(my\s+)?(academic\s+plan|courses|enrolled\s+subjects)/i.test(lower) ||
     /courses\s+(am\s+i\s+currently\s+studying|in\s+my\s+plan)/i.test(lower) ||
     /(how\s+many|what)\s+topics?\s+(have\s+i\s+mastered|are\s+mastered)/i.test(lower) ||
-    /what\s+is\s+my\s+(syllabus|exam|revision)\s+(status|progress)/i.test(lower);
+    /what\s+is\s+my\s+(syllabus|exam|revision)\s+(status|progress)/i.test(lower) ||
+    /(show|get|view|what\s+is)\s+(my\s+)?(current\s+)?academic\s+(progress|status|readiness|standing)/i.test(lower) ||
+    /my\s+academic\s+progress/i.test(lower);
 
   if (isAcademicQuery) {
     return {
@@ -184,19 +208,20 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
   }
 
   // 5. TASK_MANAGEMENT — Tasks, Todos, Reminders
-  // Examples: "What tasks do I have today?", "Create a task to finish lab", "Add reminder for exam"
+  // Examples: "What tasks do I have today?", "Create a task to finish lab", "Create a revision task for my next assessment", "Move tomorrow's task to Friday"
   const isReminderCreation =
     /(?:remind\s+me|create\s+(?:a\s+)?reminder|set\s+(?:a\s+)?reminder|add\s+(?:a\s+)?reminder)/i.test(
       lower
     );
   const isTaskCreation =
-    /(?:add|create|schedule|make)\s+(?:a\s+)?(?:new\s+)?(?:task|todo|homework)/i.test(lower);
+    /(?:add|create|schedule|make)\s+(?:a\s+)?(?:new\s+)?(?:revision\s+|study\s+|prep\s+)?(?:task|todo|homework|assignment)/i.test(lower) ||
+    /(?:create|add|schedule)\s+(?:a\s+)?revision\s+task/i.test(lower);
   const isTaskQuery =
     /(?:what\s+tasks|list\s+(?:my\s+)?tasks|show\s+(?:my\s+)?tasks|my\s+pending\s+tasks|high\s+priority\s+tasks|what\s+are\s+my\s+todos)/i.test(
       lower
     );
   const isTaskUpdate =
-    /(?:mark\s+task|complete\s+task|finish\s+task|update\s+task\s+status)/i.test(lower);
+    /(?:mark\s+task|complete\s+task|finish\s+task|update\s+task\s+status|move\s+.*task\s+to|reschedule\s+.*task|postpone\s+.*task)/i.test(lower);
 
   if (isReminderCreation) {
     return {
@@ -209,12 +234,27 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
   }
 
   if (isTaskCreation || isTaskUpdate) {
+    // Extract task title for creation if present
+    let taskTitle: string | undefined;
+    const taskMatch = message.match(/(?:task|todo)\s+(?:to|for|called)?\s+['"]?([^'"]+?)['"]?$/i);
+    if (taskMatch) {
+      taskTitle = taskMatch[1].trim();
+    } else if (/revision\s+task/i.test(lower)) {
+      const revMatch = message.match(/(?:for|on|about)\s+['"]?([^'"]+?)['"]?$/i);
+      taskTitle = revMatch ? `Revision for ${revMatch[1].trim()}` : "Academic Revision Task";
+    }
+
     return {
       intent: "task_management",
       confidence: 0.95,
       targetDomain: "tasks",
       allowedToolNames: ["create_task", "update_task", "update_task_status", "get_tasks", "create_reminder"],
-      reason: "Request to mutate student tasks.",
+      extractedEntity: taskTitle ? { taskTitle } : undefined,
+      suggestedAction: isTaskCreation && taskTitle ? {
+        toolName: "create_task",
+        suggestedArgs: { title: taskTitle, priority: "HIGH" },
+      } : undefined,
+      reason: isTaskUpdate ? "Request to update or reschedule student tasks." : "Request to create student task.",
     };
   }
 
@@ -229,14 +269,15 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
   }
 
   // 6. KNOWLEDGE_QUERY — Notes, Docs, Knowledge Graph
-  // Examples: "Search my notes for Nyquist", "Find my notes on Operating Systems"
+  // Examples: "Search my notes for Nyquist", "Find my notes on Operating Systems", "Show my research notes."
   if (
-    /(search|find|show|lookup)\s+(my\s+)?notes/i.test(lower) ||
-    /notes\s+(on|about|for)/i.test(lower)
+    /(search|find|show|lookup|get|view|list)\s+(my\s+)?(research\s+)?notes/i.test(lower) ||
+    /notes\s+(on|about|for)/i.test(lower) ||
+    /(show|get|view|list)\s+(my\s+)?research\s+(records|notes|papers)/i.test(lower)
   ) {
     return {
       intent: "knowledge_query",
-      confidence: 0.92,
+      confidence: 0.95,
       targetDomain: "notes",
       allowedToolNames: ["search_notes", "get_academic_records"],
       reason: "Request to query user's internal notes and knowledge graph.",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
 import { triggerAutomations } from "@/lib/automations-engine";
+import { eventBus } from "@/lib/events";
 
 export async function GET(req: Request) {
   try {
@@ -52,6 +53,8 @@ export async function POST(req: Request) {
     const now = new Date();
     const start = new Date(now.getTime() - actual * 60000);
 
+    const isCompleted = body.completed !== undefined ? Boolean(body.completed) : true;
+
     // 1. Create persistent FocusSession record
     const session = await prisma.focusSession.create({
       data: {
@@ -63,12 +66,22 @@ export async function POST(req: Request) {
         actualMinutes: actual,
         startTime: start,
         endTime: now,
-        completed: true,
+        completed: isCompleted,
         reflectionNotes: reflectionNotes || null,
         energyRating: energyRating ? Number(energyRating) : 4,
         distractionCount: distractionCount ? Number(distractionCount) : 0,
       },
     });
+
+    if (isCompleted) {
+      eventBus.publish("focus_session.completed", session.id, userId, {
+        sessionId: session.id,
+        durationMinutes: actual,
+        taskId: taskId || undefined,
+        courseId: courseId || undefined,
+        topicId: topicId || undefined,
+      });
+    }
 
     // 2. If linked to a task, update task's actual minutes and mark in-progress if TODO
     let updatedTask = null;

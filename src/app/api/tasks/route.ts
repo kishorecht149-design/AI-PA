@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
+import { eventBus } from "@/lib/events";
 
 export async function GET(req: Request) {
   try {
@@ -94,6 +95,20 @@ export async function PATCH(req: Request) {
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
       },
     });
+
+    // Publish event facts to event bus for cross-module synchronization
+    if (status === "COMPLETED" && existing.status !== "COMPLETED") {
+      eventBus.publish("task.completed", id, userId, {
+        taskId: id,
+        projectId: existing.projectId || updated.projectId,
+      });
+    }
+    if (dueDate && (!existing.dueDate || new Date(dueDate).getTime() !== new Date(existing.dueDate).getTime())) {
+      eventBus.publish("task.rescheduled", id, userId, {
+        taskId: id,
+        newDueDate: dueDate,
+      });
+    }
 
     return NextResponse.json({ task: updated });
   } catch (err: any) {

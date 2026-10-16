@@ -29,8 +29,9 @@ export async function GET() {
     const totalActualMinutes = tasks.reduce((acc, t) => acc + t.actualMinutes, 0);
     const totalEstimatedMinutes = tasks.reduce((acc, t) => acc + (t.estimatedMinutes || 0), 0);
 
-    const totalFocusMinutes = focusSessions.reduce((acc, f) => acc + f.actualMinutes, 0);
-    const focusSessionCount = focusSessions.length;
+    const completedFocusSessions = focusSessions.filter((f) => f.completed);
+    const totalFocusMinutes = completedFocusSessions.reduce((acc, f) => acc + f.actualMinutes, 0);
+    const focusSessionCount = completedFocusSessions.length;
 
     const totalHabitLogs = habits.reduce((acc, h) => acc + h.logs.length, 0);
     const completedHabitLogs = habits.reduce(

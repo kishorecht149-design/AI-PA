@@ -201,9 +201,11 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
       if (existing) {
         return {
           success: true,
+          created: false,
+          alreadyExists: true,
+          alreadyExisted: true,
           message: `Course "${existing.name}" (${existing.code}) already exists in your academic plan.`,
           course: existing,
-          alreadyExisted: true,
         };
       }
 
@@ -223,6 +225,9 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
 
       return {
         success: true,
+        created: true,
+        alreadyExists: false,
+        alreadyExisted: false,
         message: `Successfully registered course "${course.name}" (${course.code}) in your academic plan.`,
         course,
       };
@@ -590,12 +595,14 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
         message: { type: "string", description: "Details or context for the reminder" },
         scheduledDate: { type: "string", description: "Optional ISO date string for when the reminder fires" },
         category: { type: "string", description: "Category: DEADLINE, REVISION, or REVIEW", enum: ["DEADLINE", "REVISION", "REVIEW"] },
+        taskId: { type: "string", description: "Optional ID of an existing task to link this reminder to" },
       },
       required: ["title"],
     },
     execute: async (userId, args) => {
       const title = String(args.title).trim();
       const message = args.message ? String(args.message).trim() : title;
+      const link = args.taskId ? `/tasks?id=${args.taskId}` : null;
 
       const notif = await prisma.notification.create({
         data: {
@@ -603,6 +610,7 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
           title,
           message,
           category: args.category || "DEADLINE",
+          link,
           isRead: false,
         },
       });
