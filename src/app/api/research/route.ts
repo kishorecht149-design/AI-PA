@@ -59,6 +59,52 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, project }, { status: 201 });
     }
 
+    // Ingest paper into Notes workspace
+    if (body.action === "INGEST_NOTE") {
+      const { researchProjectId, title, authors, year, doi, arxivId, abstract, pdfUrl } = body;
+      if (!title?.trim()) {
+        return NextResponse.json({ error: "Title is required for note ingestion" }, { status: 400 });
+      }
+
+      const noteTitle = `Literature Review: ${title.trim().slice(0, 80)}`;
+      const markdownContent = `# ${title.trim()}
+
+> **Authors**: ${authors || "Unknown"}  
+> **Publication Year**: ${year || new Date().getFullYear()}  
+> **Source / ID**: ${arxivId ? `arXiv:${arxivId}` : doi ? `DOI:${doi}` : "Scholarly Publication"}  
+${pdfUrl ? `> **Open Access PDF**: [View Document](${pdfUrl})` : ""}
+
+---
+
+## 1. Abstract & Executive Summary
+${abstract || "No abstract provided in bibliographic index."}
+
+## 2. Core Methodology & Contributions
+- **Key Hypothesis**:
+- **Experimental Setup / Datasets**:
+- **Primary Finding**:
+
+## 3. Critical Analysis & Limitations
+- **Underlying Assumptions**:
+- **Open Questions**:
+
+## 4. Connection to Student Research
+- [ ] Connect findings to active research project or codebase.
+`;
+
+      const note = await prisma.note.create({
+        data: {
+          userId,
+          title: noteTitle,
+          contentMarkdown: markdownContent,
+          tags: "research,paper,literature-review",
+          researchProjectId: researchProjectId || null,
+        },
+      });
+
+      return NextResponse.json({ success: true, note }, { status: 201 });
+    }
+
     // 2. Create a new Experiment
     if (body.action === "CREATE_EXPERIMENT" || body.experimentCode || (body.objective && !body.title)) {
       const {

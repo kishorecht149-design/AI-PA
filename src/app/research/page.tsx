@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Microscope,
   Search,
@@ -17,6 +18,10 @@ import {
   Layers,
   Award,
   Check,
+  Copy,
+  Quote,
+  Network,
+  Share2,
 } from "lucide-react";
 
 interface PaperItem {
@@ -98,7 +103,75 @@ export default function ResearchPage() {
   const [searchQuery, setSearchQuery] = useState("Edge LLM Quantization");
   const [discoveryPapers, setDiscoveryPapers] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const router = useRouter();
   const [saveSuccessId, setSaveSuccessId] = useState<string | null>(null);
+
+  // Citation & Ingestion States
+  const [citationModalPaper, setCitationModalPaper] = useState<any | null>(null);
+  const [citationFormat, setCitationFormat] = useState<"bibtex" | "ieee" | "apa">("bibtex");
+  const [citationCopied, setCitationCopied] = useState(false);
+  const [ingestingNoteId, setIngestingNoteId] = useState<string | null>(null);
+  const [noteIngestSuccess, setNoteIngestSuccess] = useState<{ id: string; noteId: string } | null>(null);
+
+  const generateCitation = (paper: any, format: "bibtex" | "ieee" | "apa") => {
+    const authorsStr = Array.isArray(paper.authors) ? paper.authors.join(", ") : paper.authors || "Unknown Authors";
+    const firstAuthorLast = authorsStr.split(",")[0]?.split(" ").pop() || "Author";
+    const year = paper.year || paper.publicationYear || new Date().getFullYear();
+    const title = paper.title || "Untitled Paper";
+    const citeKey = `${firstAuthorLast.toLowerCase()}${year}`;
+
+    if (format === "bibtex") {
+      return `@article{${citeKey},
+  title = {${title}},
+  author = {${authorsStr}},
+  year = {${year}},
+  journal = {${paper.retrievedSource || paper.source || "arXiv preprint"}}${paper.doi ? `,\n  doi = {${paper.doi}}` : ""}${paper.arxivId ? `,\n  eprint = {${paper.arxivId}}` : ""}
+}`;
+    }
+
+    if (format === "ieee") {
+      return `[1] ${authorsStr}, "${title}," ${year}.${paper.doi ? ` doi: ${paper.doi}.` : paper.arxivId ? ` arXiv:${paper.arxivId}.` : ""}`;
+    }
+
+    return `${authorsStr} (${year}). ${title}. ${paper.retrievedSource || paper.source || "Scholarly Archive"}.${paper.doi ? ` https://doi.org/${paper.doi}` : ""}`;
+  };
+
+  const copyCitation = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCitationCopied(true);
+    setTimeout(() => setCitationCopied(false), 2000);
+  };
+
+  const handleIngestToNotes = async (paper: any) => {
+    setIngestingNoteId(paper.id);
+    try {
+      const res = await fetch("/api/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "INGEST_NOTE",
+          researchProjectId: activeProject?.id,
+          title: paper.title,
+          authors: Array.isArray(paper.authors) ? paper.authors.join(", ") : paper.authors,
+          year: paper.year || paper.publicationYear,
+          doi: paper.doi,
+          arxivId: paper.arxivId,
+          abstract: paper.abstract,
+          pdfUrl: paper.pdfUrl || paper.openAccessUrl,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.note) {
+        setNoteIngestSuccess({ id: paper.id, noteId: data.note.id });
+        setTimeout(() => setNoteIngestSuccess(null), 5000);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIngestingNoteId(null);
+    }
+  };
 
   const fetchResearch = async () => {
     try {
@@ -610,37 +683,84 @@ export default function ResearchPage() {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-4 text-xs pt-1 border-t border-zinc-900">
-                        {p.doi && (
-                          <a
-                            href={`https://doi.org/${p.doi}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-zinc-400 hover:text-white flex items-center gap-1 text-[11px]"
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-2.5 border-t border-zinc-900">
+                        <div className="flex items-center gap-3">
+                          {p.doi && (
+                            <a
+                              href={`https://doi.org/${p.doi}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-zinc-400 hover:text-white flex items-center gap-1 text-[11px]"
+                            >
+                              DOI Reference <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          {p.arxivId && (
+                            <a
+                              href={`https://arxiv.org/abs/${p.arxivId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-zinc-400 hover:text-white flex items-center gap-1 text-[11px]"
+                            >
+                              arXiv:{p.arxivId} <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          {p.pdfUrl && (
+                            <a
+                              href={p.pdfUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-cyan-400 hover:underline flex items-center gap-1 text-[11px] font-medium"
+                            >
+                              Read Full PDF <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Research Action Pipeline */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setCitationModalPaper(p)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] border border-zinc-800 transition-colors"
+                            title="Format and copy bibliographic citation"
                           >
-                            DOI Reference <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                        {p.arxivId && (
-                          <a
-                            href={`https://arxiv.org/abs/${p.arxivId}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-zinc-400 hover:text-white flex items-center gap-1 text-[11px]"
+                            <Quote className="w-3 h-3 text-amber-400" />
+                            <span>Cite</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleIngestToNotes(p)}
+                            disabled={ingestingNoteId === p.id}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] border border-zinc-800 transition-colors disabled:opacity-50"
+                            title="Auto-generate structured literature review in Notes"
                           >
-                            arXiv:{p.arxivId} <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                        {p.pdfUrl && (
-                          <a
-                            href={p.pdfUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-white hover:underline flex items-center gap-1 text-[11px] font-medium"
+                            {noteIngestSuccess?.id === p.id ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                <span className="text-emerald-300">In Notes!</span>
+                              </>
+                            ) : ingestingNoteId === p.id ? (
+                              <>
+                                <Sparkles className="w-3 h-3 animate-spin text-purple-400" />
+                                <span>Ingesting...</span>
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="w-3 h-3 text-purple-400" />
+                                <span>Ingest to Notes</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            onClick={() => router.push("/graph")}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] border border-zinc-800 transition-colors"
+                            title="View paper in 3D Knowledge Graph"
                           >
-                            Read Full PDF <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
+                            <Network className="w-3 h-3 text-sky-400" />
+                            <span>Graph</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -796,22 +916,135 @@ export default function ResearchPage() {
                         </p>
                       )}
 
-                      {paper.openAccessUrl && (
-                        <a
-                          href={paper.openAccessUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-white hover:underline pt-1 font-medium"
-                        >
-                          View Open Access PDF <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-zinc-900">
+                        {paper.openAccessUrl ? (
+                          <a
+                            href={paper.openAccessUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-cyan-400 hover:underline font-medium"
+                          >
+                            View Open Access PDF <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500 font-mono">arXiv / OpenAlex Indexed</span>
+                        )}
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setCitationModalPaper(paper)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] border border-zinc-800 transition-colors"
+                            title="Format and copy bibliographic citation"
+                          >
+                            <Quote className="w-3 h-3 text-amber-400" />
+                            <span>Cite</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleIngestToNotes(paper)}
+                            disabled={ingestingNoteId === paper.id}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] border border-zinc-800 transition-colors disabled:opacity-50"
+                            title="Auto-generate structured literature review in Notes"
+                          >
+                            {noteIngestSuccess?.id === paper.id ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                <span className="text-emerald-300">In Notes!</span>
+                              </>
+                            ) : ingestingNoteId === paper.id ? (
+                              <>
+                                <Sparkles className="w-3 h-3 animate-spin text-purple-400" />
+                                <span>Ingesting...</span>
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="w-3 h-3 text-purple-400" />
+                                <span>Ingest to Notes</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 1-CLICK CITATION MODAL */}
+      {citationModalPaper && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-3xl bg-[#0a0a0a] border border-zinc-800 p-6 md:p-7 space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-zinc-800 pb-3">
+              <div className="space-y-1 pr-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-white">
+                  <Quote className="w-4 h-4 text-amber-400" />
+                  Citation Generator
+                </div>
+                <p className="text-xs text-zinc-400 line-clamp-1">{citationModalPaper.title}</p>
+              </div>
+              <button
+                onClick={() => setCitationModalPaper(null)}
+                className="text-zinc-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Citation Formats */}
+            <div className="flex items-center gap-2">
+              {(["bibtex", "ieee", "apa"] as const).map((fmt) => (
+                <button
+                  key={fmt}
+                  onClick={() => setCitationFormat(fmt)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase font-mono transition-all ${
+                    citationFormat === fmt
+                      ? "bg-white text-black shadow-md"
+                      : "bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800"
+                  }`}
+                >
+                  {fmt}
+                </button>
+              ))}
+            </div>
+
+            {/* Formatted Code Block */}
+            <div className="relative">
+              <pre className="p-4 rounded-2xl bg-black border border-zinc-800 text-xs font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-56">
+                {generateCitation(citationModalPaper, citationFormat)}
+              </pre>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => handleIngestToNotes(citationModalPaper)}
+                className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Ingest into Notes workspace</span>
+              </button>
+
+              <button
+                onClick={() => copyCitation(generateCitation(citationModalPaper, citationFormat))}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs shadow-md shadow-amber-500/20 transition-all"
+              >
+                {citationCopied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Copied to Clipboard!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Citation</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

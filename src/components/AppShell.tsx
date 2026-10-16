@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 
 import { NotificationAlarmEngine } from "./notifications/NotificationAlarmEngine";
 import { NotificationBell } from "./notifications/NotificationBell";
+import { FloatingAssistantDock } from "./assistant/FloatingAssistantDock";
 
 export function AppShell({
   children,
@@ -82,6 +83,9 @@ export function AppShell({
         isOpen={commandBarOpen}
         onClose={() => setCommandBarOpen(false)}
       />
+
+      {/* Omni-Present 3D Assistant Floating Dock */}
+      <FloatingAssistantDock />
     </div>
   );
 }

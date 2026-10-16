@@ -18,6 +18,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { RevisionFlashcardModal } from "@/components/academics/RevisionFlashcardModal";
 
 interface TopicItem {
   id: string;
@@ -434,90 +435,13 @@ export default function AcademicsPage() {
         </div>
       )}
 
-      {/* SM-2 Topic Active Recall Modal */}
+      {/* Interactive Active-Recall SM-2 Flashcard Modal */}
       {selectedTopic && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-md bg-[#0b1120] border border-cyan-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-2 text-cyan-400 text-xs font-semibold">
-              <Sparkles className="w-4 h-4" /> SuperMemo SM-2 Active Recall Drill
-            </div>
-
-            <div>
-              <span className="text-[10px] font-mono text-emerald-400 font-bold">
-                {selectedTopic.courseCode}
-              </span>
-              <h2 className="text-base font-bold text-white mt-0.5">
-                {selectedTopic.title}
-              </h2>
-            </div>
-
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Rate your conceptual recall for this syllabus topic. The algorithm calculates the next spaced revision interval.
-            </p>
-
-            <form onSubmit={handleRecordRevision} className="space-y-4">
-              {/* 1-5 recall rating buttons */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-2">
-                  Recall Confidence (1 = Blackout, 5 = Flawless)
-                </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {[1, 2, 3, 4, 5].map((val) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => setRecallRating(val)}
-                      className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                        recallRating === val
-                          ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/25 scale-105"
-                          : "bg-white/5 text-slate-300 hover:bg-white/10"
-                      }`}
-                    >
-                      {val}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Active Recall Notes (Formulas / Derivations / Traps)
-                </label>
-                <textarea
-                  value={revisionNotes}
-                  onChange={(e) => setRevisionNotes(e.target.value)}
-                  placeholder="e.g. Formula: Effective Access Time = h*(tTLB + tRAM) + (1-h)*(tTLB + 2*tRAM)"
-                  rows={3}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
-                />
-              </div>
-
-              {revisionFeedback && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{revisionFeedback}</span>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedTopic(null)}
-                  className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:bg-white/5"
-                >
-                  Close
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingRevision}
-                  className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs shadow-md shadow-cyan-500/20 disabled:opacity-50"
-                >
-                  {isSubmittingRevision ? "Recording..." : "Record & Schedule"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <RevisionFlashcardModal
+          topic={selectedTopic}
+          onClose={() => setSelectedTopic(null)}
+          onRevisionLogged={fetchAcademics}
+        />
       )}
 
       {/* Track & Syllabus Onboarding Modal */}
