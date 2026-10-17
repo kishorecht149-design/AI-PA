@@ -22,11 +22,21 @@ model User {
   name          String
   avatarUrl     String?
   role          String    @default("student")
+  phoneNumber   String?
+  phoneVerified Boolean   @default(false)
+  emailVerified Boolean   @default(false)
+  phoneVerifiedAt DateTime?
+  emailVerifiedAt DateTime?
+  adminRole     String?   // "owner" | "support_admin" | null
+  totpSecret    String?   // Base32 secret for TOTP 2FA
+  totpEnabled   Boolean   @default(false)
+  recoveryCodes String?   // Hashed backup recovery codes JSON
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   profile       Profile?
   preferences   UserPreference?
+  subscription  Subscription?
 
   tasks         Task[]
   projects      Project[]
@@ -50,8 +60,14 @@ model User {
   notifications Notification[]
   auditEvents   AuditEvent[]
   customSections CustomDashboardSection[]
+  supportSessionsAsTarget AdminSupportSession[] @relation("TargetUser")
+  supportSessionsAsAdmin  AdminSupportSession[] @relation("AdminUser")
+  adminAuditLogsCreated   AdminAuditLog[]       @relation("AdminAuditor")
+  adminAuditLogsTargeted  AdminAuditLog[]       @relation("TargetAudited")
 
   @@index([email])
+  @@index([phoneNumber])
+  @@index([adminRole])
 }
 
 model Profile {
@@ -864,4 +880,116 @@ model CustomDashboardSection {
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
+}
+
+// -----------------------------------------------------------------------------
+// 12. Identity Verification, Phone Limits & Security
+// -----------------------------------------------------------------------------
+
+model PhoneVerification {
+  id            String    @id @default(cuid())
+  phoneNumber   String    // Normalized E.164
+  otpHash       String
+  salt          String
+  expiresAt     DateTime
+  attempts      Int       @default(0)
+  verified      Boolean   @default(false)
+  verifiedAt    DateTime?
+  trialClaimed  Boolean   @default(false)
+  lastRequestAt DateTime  @default(now())
+  requestCount  Int       @default(1)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([phoneNumber])
+}
+
+model EmailVerificationToken {
+  id          String    @id @default(cuid())
+  email       String
+  tokenHash   String
+  expiresAt   DateTime
+  verified    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
+}
+
+// -----------------------------------------------------------------------------
+// 13. Subscriptions, Trials & Retention
+// -----------------------------------------------------------------------------
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status             String    @default("TRIALING") // "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED"
+  planId             String    @default("student_os_all_access")
+  billingCycle       String    @default("monthly") // "monthly" | "yearly"
+  trialStartedAt     DateTime?
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  autoRenew          Boolean   @default(true)
+  retentionDeadline  DateTime?
+  dataDeletedAt      DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([userId, status])
+}
+
+// -----------------------------------------------------------------------------
+// 14. Administration, Support Sessions & 90-Day Audit Logging
+// -----------------------------------------------------------------------------
+
+model AdminSupportSession {
+  id           String    @id @default(cuid())
+  adminId      String
+  admin        User      @relation("AdminUser", fields: [adminId], references: [id], onDelete: Cascade)
+  targetUserId String
+  targetUser   User      @relation("TargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  reason       String
+  mode         String    @default("view") // "view" | "edit"
+  startedAt    DateTime  @default(now())
+  expiresAt    DateTime  // max 15 minutes for edit
+  endedAt      DateTime?
+
+  @@index([adminId, expiresAt])
+  @@index([targetUserId])
+}
+
+model AdminAuditLog {
+  id           String    @id @default(cuid())
+  adminId      String
+  admin        User      @relation("AdminAuditor", fields: [adminId], references: [id], onDelete: Cascade)
+  targetUserId String?
+  targetUser   User?     @relation("TargetAudited", fields: [targetUserId], references: [id], onDelete: SetNull)
+  action       String    // e.g. "START_SUPPORT_EDIT", "SUPPORT_EDIT_TASK", "PROMOTE_ADMIN", "INVITE_ADMIN"
+  details      String?   // JSON details
+  ipAddress    String?
+  createdAt    DateTime  @default(now()) // Retained for 90 days
+
+  @@index([createdAt])
+  @@index([adminId])
+  @@index([targetUserId])
+}
+
+// -----------------------------------------------------------------------------
+// 15. Distributed Payment Webhook Idempotency Ledger
+// -----------------------------------------------------------------------------
+
+model PaymentWebhookEvent {
+  id          String    @id @default(cuid())
+  provider    String    // "stripe" | "razorpay"
+  eventId     String    // Provider event ID
+  status      String    @default("PROCESSING") // "PROCESSING" | "PROCESSED" | "FAILED"
+  eventType   String?
+  userId      String?
+  error       String?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@unique([provider, eventId])
 }

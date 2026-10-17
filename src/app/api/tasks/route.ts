@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { resolveApiUserId } from "@/lib/auth";
+import { resolveApiUserId, assertWorkspaceWriteAccess } from "@/lib/auth";
 import { eventBus } from "@/lib/events";
 import { createOutboxEventOperation, drainOutboxEvents } from "@/lib/outbox";
 
@@ -38,6 +38,7 @@ export async function POST(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const body = await req.json();
     const { title, description, priority, dueDate, estimatedMinutes, courseId, projectId, researchProjectId } = body;
@@ -84,6 +85,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ task }, { status: 201 });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -92,6 +96,7 @@ export async function PATCH(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const body = await req.json();
     const { id, status, actualMinutes, priority, title, dueDate } = body;
@@ -160,6 +165,9 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ task: updated });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -168,6 +176,7 @@ export async function DELETE(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
@@ -179,6 +188,9 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

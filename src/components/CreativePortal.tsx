@@ -19,6 +19,8 @@ import { AmahasLogo } from "@/components/brand/AmahasLogo";
 import { Interactive3DScene } from "@/components/canvas/Interactive3DScene";
 import { Perspective3DShowcase } from "@/components/canvas/Perspective3DShowcase";
 import { GoogleAuthModal } from "@/components/auth/GoogleAuthModal";
+import { GuidedDemonstration } from "@/components/portal/GuidedDemonstration";
+import { SampleWorkspaceModal } from "@/components/portal/SampleWorkspaceModal";
 
 interface CreativePortalProps {
   currentUser?: {
@@ -32,6 +34,7 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState<"welcome" | "signin">("welcome");
   const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [showSampleWorkspace, setShowSampleWorkspace] = useState(false);
 
   // Email & Password inputs (strictly clean and empty)
   const [email, setEmail] = useState("");
@@ -144,8 +147,8 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
           <div className="w-full flex flex-col items-center text-center space-y-10 animate-in fade-in duration-300">
             {/* Shimmer Border Capsule Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-950/80 border border-zinc-800 text-zinc-300 text-xs font-medium tracking-wide backdrop-blur-xl shadow-xl">
-              <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Autonomous Cognition & Execution Engine</span>
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>AMAHAS Student OS • Autonomous Execution Engine</span>
             </div>
 
             {/* Hero Headlines */}
@@ -157,46 +160,39 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
                 </span>
               </h1>
               <p className="text-sm md:text-base text-zinc-400 max-w-2xl mx-auto font-light leading-relaxed">
-                The unified, high-performance operating environment uniting autonomous intelligence,
-                deep work execution, structured knowledge retention, and literature pipelines.
+                The personal operating system for students managing coursework, competitive exams,
+                autonomous literature research, and long-term knowledge retention.
               </p>
             </div>
 
             {/* Primary Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
-              <button
-                onClick={() => setActiveStep("signin")}
-                className="group relative px-8 py-4 rounded-2xl bg-white hover:bg-zinc-200 text-black font-bold text-sm shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-3 overflow-hidden"
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <Link
+                href={currentUser ? "/dashboard" : "/signup"}
+                className="group relative px-7 py-3.5 rounded-2xl bg-white hover:bg-zinc-200 text-black font-bold text-xs shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2.5 overflow-hidden"
               >
                 <div className="absolute inset-0 bg-zinc-100/40 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                <span className="relative">Continue to AMAHAS</span>
-                <ArrowRight className="relative w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
+                <span className="relative">{currentUser ? "Open Workspace" : "Get Started Free"}</span>
+                <ArrowRight className="relative w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+              </Link>
 
               <button
-                onClick={() => setShowGoogleModal(true)}
-                className="px-6 py-4 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-200 text-sm font-semibold transition-all flex items-center gap-3 backdrop-blur-md"
+                onClick={() => setShowSampleWorkspace(true)}
+                className="px-6 py-3.5 rounded-2xl bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-800/60 hover:border-cyan-700 text-cyan-200 text-xs font-semibold transition-all flex items-center gap-2 backdrop-blur-md shadow-lg"
               >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                  />
-                </svg>
-                <span>Sign in with Google</span>
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Explore Sample Workspace</span>
               </button>
+
+              {!currentUser && (
+                <button
+                  onClick={() => setActiveStep("signin")}
+                  className="px-5 py-3.5 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-xs font-semibold transition-all flex items-center gap-2"
+                >
+                  <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Open Workspace (Sign In)</span>
+                </button>
+              )}
             </div>
 
             {/* INTERACTIVE 3D PERSPECTIVE PRODUCT SHOWCASE */}
@@ -269,6 +265,11 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
                 <Lock className="w-3.5 h-3.5 text-zinc-400" />
                 AES Session Token Encryption
               </span>
+            </div>
+
+            {/* Guided Realistic Student Workflow Demonstration */}
+            <div className="w-full pt-10">
+              <GuidedDemonstration />
             </div>
           </div>
         ) : (
@@ -448,6 +449,16 @@ export function CreativePortal({ currentUser }: CreativePortalProps) {
         isOpen={showGoogleModal}
         onClose={() => setShowGoogleModal(false)}
         rememberMe={rememberMe}
+      />
+
+      {/* Isolated Demonstration Sample Workspace Modal */}
+      <SampleWorkspaceModal
+        isOpen={showSampleWorkspace}
+        onClose={() => setShowSampleWorkspace(false)}
+        onOpenSignUp={() => {
+          setShowSampleWorkspace(false);
+          setActiveStep("signin");
+        }}
       />
     </div>
   );

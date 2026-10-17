@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveApiUserId } from "@/lib/auth";
 import { evaluateDashboardOverview, updateDashboardLayout } from "@/lib/dashboard-evaluator";
+import { assertWorkspaceWriteAccess } from "@/lib/subscription";
 
 export async function GET() {
   try {
@@ -26,6 +27,7 @@ export async function PATCH(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const body = await req.json();
     const updatedLayout = await updateDashboardLayout(userId, body);
@@ -36,6 +38,9 @@ export async function PATCH(req: Request) {
       message: "Dashboard layout and preferences saved successfully.",
     });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     console.error("[Dashboard Layout API] Error:", err);
     return NextResponse.json(
       { error: err.message || "Failed to save dashboard layout" },

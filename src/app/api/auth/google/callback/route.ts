@@ -68,9 +68,14 @@ export async function GET(req: Request) {
     const email = profileData.email?.toLowerCase().trim();
     const name = profileData.name?.trim() || email.split("@")[0];
     const avatarUrl = profileData.picture;
+    const isGoogleEmailVerified = Boolean(profileData.verified_email || profileData.email_verified);
 
     if (!email) {
       return NextResponse.redirect(`${origin}/login?error=No email provided by Google`);
+    }
+
+    if (!isGoogleEmailVerified) {
+      return NextResponse.redirect(`${origin}/login?error=Google account email is not verified`);
     }
 
     // 3. Find or register user
@@ -85,6 +90,8 @@ export async function GET(req: Request) {
           email,
           name,
           passwordHash,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
           avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
           profile: {
             create: {

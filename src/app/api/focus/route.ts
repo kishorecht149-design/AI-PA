@@ -4,6 +4,7 @@ import { resolveApiUserId } from "@/lib/auth";
 import { triggerAutomations } from "@/lib/automations-engine";
 import { eventBus } from "@/lib/events";
 import { createOutboxEventOperation, drainOutboxEvents } from "@/lib/outbox";
+import { assertWorkspaceWriteAccess } from "@/lib/subscription";
 
 export async function GET(req: Request) {
   try {
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const body = await req.json();
     const {
@@ -152,6 +154,9 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

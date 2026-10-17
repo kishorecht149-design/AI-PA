@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
+import { assertWorkspaceWriteAccess } from "@/lib/subscription";
 import { aiGateway } from "@/lib/ai-gateway";
 import { ALL_TOOLS, APPLICATION_TOOLS, validateToolArgs } from "@/lib/tools-registry";
 import { inferBehaviorFromContent } from "@/components/assistant/behaviorDirector";
@@ -79,6 +80,10 @@ export async function POST(req: Request) {
       const toolDef = ALL_TOOLS[toolName] || APPLICATION_TOOLS[toolName];
       if (!toolDef) {
         return NextResponse.json({ error: `Unknown tool '${toolName}'` }, { status: 400 });
+      }
+
+      if (!toolDef.isReadOnly) {
+        await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
       }
 
       // 1. Strict server-side parameter validation
@@ -251,6 +256,9 @@ export async function POST(req: Request) {
       plan: response.plan,
     });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -260,6 +268,7 @@ export async function DELETE(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const { searchParams } = new URL(req.url);
     const memoryId = searchParams.get("memoryId");
@@ -271,6 +280,9 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

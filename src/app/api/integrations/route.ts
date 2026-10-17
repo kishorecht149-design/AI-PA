@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
+import { assertWorkspaceWriteAccess } from "@/lib/subscription";
 import { CONNECTOR_CATALOG, testConnector } from "@/lib/integrations/connectors";
 import { FUTURE_SERVICE_REGISTRY } from "@/lib/integrations/registry";
 
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const body = await req.json();
     const { provider, apiKey, endpoint } = body;
@@ -79,6 +81,9 @@ export async function POST(req: Request) {
       account: updated,
     });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

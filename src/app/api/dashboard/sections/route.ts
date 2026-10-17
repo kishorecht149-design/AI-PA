@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
+import { assertWorkspaceWriteAccess } from "@/lib/subscription";
 
 export async function GET() {
   try {
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const body = await req.json();
     const { title, description, category, icon, folders, items } = body;
@@ -68,6 +70,9 @@ export async function POST(req: Request) {
       message: `Section "${created.title}" successfully created on your dashboard.`,
     });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -76,6 +81,7 @@ export async function PATCH(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const body = await req.json();
     const { sectionId, action, folderTitle, linkTitle, linkUrl, linkNotes, items } = body;
@@ -152,6 +158,9 @@ export async function PATCH(req: Request) {
       message: "Dashboard section updated successfully.",
     });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -160,6 +169,7 @@ export async function DELETE(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const { searchParams } = new URL(req.url);
     const sectionId = searchParams.get("sectionId");
@@ -174,6 +184,9 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true, message: "Section removed from dashboard." });
   } catch (err: any) {
+    if (err.status === 403 || err.code === "WORKSPACE_READ_ONLY") {
+      return NextResponse.json({ error: err.message, code: "WORKSPACE_READ_ONLY" }, { status: 403 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
