@@ -48,7 +48,6 @@ const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
     group: "Core",
     items: [
       { name: "Dashboard", href: "/dashboard", icon: Home },
-      { name: "Portal", href: "/", icon: Sparkles },
     ],
   },
   {
