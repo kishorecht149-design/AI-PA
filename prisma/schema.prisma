@@ -329,6 +329,7 @@ model Course {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  @@unique([userId, code])
   @@index([userId])
 }
 

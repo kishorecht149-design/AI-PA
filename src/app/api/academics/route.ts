@@ -5,13 +5,21 @@ import { calculateSM2 } from "@/lib/spaced-repetition";
 import { eventBus } from "@/lib/events";
 import { assertWorkspaceWriteAccess } from "@/lib/subscription";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const userId = await resolveApiUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const { searchParams } = new URL(req.url);
+    const trackParam = searchParams.get("track");
+
+    const where: any = { userId };
+    if (trackParam && trackParam !== "ALL") {
+      where.track = trackParam;
+    }
+
     const courses = await prisma.course.findMany({
-      where: { userId },
+      where,
       include: {
         units: {
           include: {

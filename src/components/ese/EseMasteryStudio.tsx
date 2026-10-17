@@ -219,7 +219,7 @@ export function EseMasteryStudio() {
                   </span>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Academics &rarr; Engineering Services Examination (22 Subjects, 78 Chapters, 351 Checklist Items)
+                  Academics &rarr; Engineering Services Examination (22 Subjects, 78 Chapters, 351 Subtopics + 16 Milestones = 367 Total Preparation Items)
                 </p>
               </div>
             </div>
@@ -229,7 +229,7 @@ export function EseMasteryStudio() {
           <div className="flex items-center p-1 bg-[var(--bg-primary)] rounded-xl border border-[var(--border)] overflow-x-auto">
             {[
               { id: "overview", label: "Overview", icon: Target },
-              { id: "syllabus", label: "Syllabus", icon: BookOpen },
+              { id: "syllabus", label: "Syllabus (351+16)", icon: BookOpen },
               { id: "plan", label: "600-Day Plan", icon: Calendar },
               { id: "resources", label: "Resources", icon: FolderKanban },
             ].map((tab) => {
@@ -305,20 +305,22 @@ export function EseMasteryStudio() {
                       <button
                         onClick={handleActivatePlan}
                         disabled={activatingPlan}
-                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[var(--accent-primary)] text-white text-xs font-bold hover:opacity-90 transition-all disabled:opacity-50"
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-md shadow-purple-600/20 disabled:opacity-50"
                       >
                         {activatingPlan ? "Generating 600 Days..." : "Activate 600-Day Plan"}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <Link
-                    href="/planner"
-                    className="px-4 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 transition-colors flex items-center gap-2 shrink-0 self-start md:self-center"
-                  >
-                    <span>Open Today in Tasks &amp; Planner</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/planner"
+                      className="px-4 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 transition-colors flex items-center gap-2 shrink-0 self-start md:self-center"
+                    >
+                      <span>Open Today in Tasks &amp; Planner</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
                 )}
               </div>
 
@@ -332,9 +334,11 @@ export function EseMasteryStudio() {
               {/* Progress Bar */}
               <div className="space-y-1.5 pt-2">
                 <div className="flex items-center justify-between text-xs font-semibold">
-                  <span className="text-[var(--text-muted)]">Overall Syllabus Mastery Progress</span>
+                  <span className="text-[var(--text-muted)]">
+                    Overall Preparation Progress (351 Subtopics + 16 Milestones)
+                  </span>
                   <span className="text-purple-400 font-mono">
-                    {overview?.stats.completedItems || 0} / {overview?.stats.totalDestinationNodes || 367} Items (
+                    {overview?.stats.completedItems || 0} / 367 Items (
                     {overview?.stats.progressPercentage || 0}%)
                   </span>
                 </div>
@@ -344,22 +348,26 @@ export function EseMasteryStudio() {
                     style={{ width: `${Math.min(overview?.stats.progressPercentage || 0, 100)}%` }}
                   />
                 </div>
+                <p className="text-[11px] text-[var(--text-muted)] font-mono">
+                  Counting Model: 351 Syllabus Subtopics + 16 Readiness Milestones = 367 Total Preparation Items
+                </p>
               </div>
             </div>
 
             {/* Reconciliation Metric Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               {[
-                { label: "Subjects", val: overview?.stats.totalSubjects || 22, color: "text-blue-400" },
-                { label: "Chapters", val: overview?.stats.totalChapters || 78, color: "text-indigo-400" },
-                { label: "Checklist Subtopics", val: overview?.stats.totalChecklistItems || 351, color: "text-purple-400" },
-                { label: "Part D Milestones", val: overview?.stats.totalMilestones || 16, color: "text-pink-400" },
-                { label: "Notes Evidence", val: overview?.stats.totalEvidenceSubmitted || 0, color: "text-emerald-400" },
-                { label: "ESE Resources", val: overview?.stats.totalResources || 0, color: "text-amber-400" },
+                { label: "Subjects", val: overview?.stats.totalSubjects || 22, sub: "Papers I & II", color: "text-blue-400" },
+                { label: "Chapters", val: overview?.stats.totalChapters || 78, sub: "Canonical Groups", color: "text-indigo-400" },
+                { label: "Syllabus Subtopics", val: overview?.stats.totalChecklistItems || 351, sub: "Checklist Items", color: "text-purple-400" },
+                { label: "Part D Milestones", val: overview?.stats.totalMilestones || 16, sub: "Readiness Milestones", color: "text-pink-400" },
+                { label: "Total Prep Items", val: (overview?.stats.totalChecklistItems || 351) + (overview?.stats.totalMilestones || 16), sub: "351 Subtopics + 16 Milestones", color: "text-cyan-400" },
+                { label: "Notes Evidence", val: overview?.stats.totalEvidenceSubmitted || 0, sub: "Drive Uploads", color: "text-emerald-400" },
               ].map((stat, i) => (
                 <div key={i} className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] space-y-1">
                   <p className="text-[11px] text-[var(--text-muted)] font-medium">{stat.label}</p>
                   <p className={`text-2xl font-bold font-mono ${stat.color}`}>{stat.val}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] font-mono">{stat.sub}</p>
                 </div>
               ))}
             </div>

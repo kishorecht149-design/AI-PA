@@ -217,10 +217,24 @@ export async function activateOrUpdateEsePlan(
   let planId = `plan_${userId}_ese600`;
 
   try {
-    // 1. Upsert EsePlan
+    // 1. Fast path: check if plan is already active with the same startDate
     const existingPlan = await prisma.esePlan.findFirst({
       where: { userId, status: "ACTIVE" },
     });
+
+    if (existingPlan) {
+      const sameStartDate = existingPlan.startDate.toISOString().substring(0, 10) === startDateStr;
+      const existingDaysCount = await prisma.esePlanDay.count({
+        where: { planId: existingPlan.id },
+      });
+      if (sameStartDate && existingDaysCount >= 600) {
+        return {
+          success: true,
+          plan: generated,
+          planId: existingPlan.id,
+        };
+      }
+    }
 
     let planRecord;
     if (existingPlan) {
@@ -247,105 +261,67 @@ export async function activateOrUpdateEsePlan(
       planId = planRecord.id;
     }
 
-    // 2. Fetch existing tasks to preserve any completed work or existing evidence
+    // 2. Batch upsert/insert days
+    const planDaysData = generated.days.map((day) => ({
+      planId,
+      dayNumber: day.dayNumber,
+      date: new Date(`${day.date}T00:00:00.000Z`),
+      phase: day.phase,
+      focusSummary: day.focusSummary,
+      totalEstimatedMinutes: day.totalMinutes,
+    }));
+
+    await prisma.esePlanDay.createMany({
+      data: planDaysData,
+      skipDuplicates: true,
+    });
+
+    // 3. Batch insert new tasks
     const existingTasks = await prisma.task.findMany({
       where: {
         userId,
         externalSource: "ESE_600_DAY_PLAN",
       },
+      select: { id: true, externalId: true, status: true },
     });
-    const existingTaskMap = new Map(existingTasks.map((t) => [t.externalId || "", t]));
+    const existingExternalIds = new Set(existingTasks.map((t) => t.externalId).filter(Boolean));
 
-    // 3. Batch prepare tasks and timeblocks
+    const newTasksData: any[] = [];
     for (const day of generated.days) {
-      // Upsert day
-      await prisma.esePlanDay.upsert({
-        where: {
-          planId_dayNumber: {
-            planId,
-            dayNumber: day.dayNumber,
-          },
-        },
-        create: {
-          planId,
-          dayNumber: day.dayNumber,
-          date: new Date(`${day.date}T00:00:00.000Z`),
-          phase: day.phase,
-          focusSummary: day.focusSummary,
-          totalEstimatedMinutes: day.totalMinutes,
-        },
-        update: {
-          date: new Date(`${day.date}T00:00:00.000Z`),
-          phase: day.phase,
-          focusSummary: day.focusSummary,
-          totalEstimatedMinutes: day.totalMinutes,
-        },
-      });
-
-      // Prepare canonical tasks
       for (const t of day.tasks) {
-        const existing = existingTaskMap.get(t.id);
-        const scheduledDt = new Date(`${t.date}T09:00:00.000Z`);
-        const dueDt = new Date(`${t.date}T23:59:59.000Z`);
-
-        if (existing) {
-          // If already completed, preserve status and evidence!
-          if (existing.status !== "COMPLETED") {
-            await prisma.task.update({
-              where: { id: existing.id },
-              data: {
-                scheduledDate: scheduledDt,
-                dueDate: dueDt,
-                eseDayNumber: t.dayNumber,
-                eseTaskType: t.taskType,
-                estimatedMinutes: t.durationMinutes,
-              },
-            });
-          }
-        } else {
-          // Create new canonical task
+        if (!existingExternalIds.has(t.id)) {
           const syllabusDesc = t.subtopicTitle
             ? `Syllabus: ${t.stage} → ${t.subjectTitle} → Ch ${t.chapterNumber}: ${t.chapterTitle} → ${t.subtopicTitle}`
             : `Outcome: ${t.outcome}`;
 
-          const createdTask = await prisma.task.create({
-            data: {
-              userId,
-              title: t.title,
-              description: `${t.outcome}\n\n${syllabusDesc}\n\n[Mandatory Evidence: Google Drive notes URL required to complete]`,
-              priority: "HIGH",
-              status: "TODO",
-              estimatedMinutes: t.durationMinutes,
-              scheduledDate: scheduledDt,
-              dueDate: dueDt,
-              externalId: t.id,
-              externalSource: "ESE_600_DAY_PLAN",
-              eseNodeId: t.syllabusNodeId || null,
-              esePlanId: planId,
-              eseDayNumber: t.dayNumber,
-              eseTaskType: t.taskType,
-              tags: JSON.stringify(["ESE", "ESE_600", `DAY_${t.dayNumber}`, t.taskType]),
-            },
-          });
-
-          // Create linked TimeBlock for Planner synchronization
-          const blockStartTime = new Date(`${t.date}T${t.taskIndex === 1 ? "09:00" : "10:30"}:00.000Z`);
-          const blockEndTime = new Date(blockStartTime.getTime() + t.durationMinutes * 60000);
-
-          await prisma.timeBlock.create({
-            data: {
-              userId,
-              title: t.title,
-              startTime: blockStartTime,
-              endTime: blockEndTime,
-              category: "study",
-              taskId: createdTask.id,
-              isFixed: false,
-              completed: false,
-              notes: t.outcome,
-            },
+          newTasksData.push({
+            userId,
+            title: t.title,
+            description: `${t.outcome}\n\n${syllabusDesc}\n\n[Mandatory Evidence: Google Drive notes URL required to complete]`,
+            priority: "HIGH",
+            status: "TODO",
+            estimatedMinutes: t.durationMinutes,
+            scheduledDate: new Date(`${t.date}T09:00:00.000Z`),
+            dueDate: new Date(`${t.date}T23:59:59.000Z`),
+            externalId: t.id,
+            externalSource: "ESE_600_DAY_PLAN",
+            eseNodeId: t.syllabusNodeId || null,
+            esePlanId: planId,
+            eseDayNumber: t.dayNumber,
+            eseTaskType: t.taskType,
+            tags: JSON.stringify(["ESE", "ESE_600", `DAY_${t.dayNumber}`, t.taskType]),
           });
         }
+      }
+    }
+
+    if (newTasksData.length > 0) {
+      for (let i = 0; i < newTasksData.length; i += 200) {
+        const chunk = newTasksData.slice(i, i + 200);
+        await prisma.task.createMany({
+          data: chunk,
+          skipDuplicates: true,
+        });
       }
     }
   } catch (err) {

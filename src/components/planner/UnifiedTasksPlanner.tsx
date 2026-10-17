@@ -325,16 +325,23 @@ export function UnifiedTasksPlanner({
   };
 
   // Derived datasets
-  const todayStr = new Date().toISOString().substring(0, 10);
+  const localDate = new Date();
+  const localTodayStr = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, "0")}-${String(localDate.getDate()).padStart(2, "0")}`;
+  const utcTodayStr = localDate.toISOString().substring(0, 10);
+
+  const isTodayDate = (dateStr?: string | null) => {
+    if (!dateStr) return false;
+    const sub = dateStr.substring(0, 10);
+    return sub === localTodayStr || sub === utcTodayStr;
+  };
 
   const todayTasks = tasks.filter((t) => {
-    if (t.scheduledDate && t.scheduledDate.substring(0, 10) === todayStr) return true;
-    if (t.dueDate && t.dueDate.substring(0, 10) === todayStr) return true;
+    if (isTodayDate(t.scheduledDate) || isTodayDate(t.dueDate)) return true;
     return false;
   });
 
   const todayBlocks = timeBlocks.filter(
-    (b) => b.startTime.substring(0, 10) === todayStr
+    (b) => isTodayDate(b.startTime)
   );
 
   const unscheduledTasks = tasks.filter(
@@ -344,7 +351,9 @@ export function UnifiedTasksPlanner({
   const upcomingTasks = tasks.filter((t) => {
     if (t.status === "COMPLETED" || t.status === "CANCELLED") return false;
     const dateVal = t.scheduledDate || t.dueDate;
-    return dateVal && dateVal.substring(0, 10) > todayStr;
+    if (!dateVal) return false;
+    const sub = dateVal.substring(0, 10);
+    return !isTodayDate(dateVal) && (sub > localTodayStr || sub > utcTodayStr);
   });
 
   const filteredTasks = tasks.filter((t) => {
@@ -432,45 +441,81 @@ export function UnifiedTasksPlanner({
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
-        {/* VIEW 1: TODAY */}
-        {activeView === "today" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left 2 Cols: Today's Scheduled Tasks */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4 text-[var(--accent-primary)]" />
-                  Today&apos;s Focus &amp; Scheduled Tasks ({todayTasks.length})
-                </h2>
-                <span className="text-xs text-[var(--text-muted)]">
-                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-                </span>
-              </div>
-
-              {todayTasks.length === 0 ? (
-                <div className="p-8 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] text-center space-y-3">
-                  <Clock className="w-10 h-10 text-[var(--text-muted)] mx-auto opacity-50" />
-                  <p className="text-sm font-medium">No tasks scheduled for today yet.</p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Schedule items from your backlog or view your ESE 600-Day Study Plan.
-                  </p>
-                  <div className="flex items-center justify-center gap-2 pt-2">
-                    <button
-                      onClick={() => setActiveView("unscheduled")}
-                      className="px-3 py-1.5 text-xs rounded-xl border border-[var(--border)] hover:bg-[var(--border)]"
-                    >
-                      Browse Unscheduled Backlog
-                    </button>
-                    <Link
-                      href="/academics/ese"
-                      className="px-3 py-1.5 text-xs rounded-xl bg-[var(--accent-primary)] text-white hover:opacity-90"
-                    >
-                      View ESE 600-Day Plan
-                    </Link>
+        {loading ? (
+          <div className="py-24 flex flex-col items-center justify-center space-y-3">
+            <div className="w-6 h-6 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-[var(--text-muted)]">Loading tasks &amp; schedule...</p>
+          </div>
+        ) : (
+          <>
+            {/* VIEW 1: TODAY */}
+            {activeView === "today" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left 2 Cols: Today's Scheduled Tasks */}
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-semibold flex items-center gap-2">
+                      <CheckSquare className="w-4 h-4 text-[var(--accent-primary)]" />
+                      Today&apos;s Focus &amp; Scheduled Tasks ({todayTasks.length})
+                    </h2>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                    </span>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
+
+                  {todayTasks.length === 0 ? (
+                    <div className="p-8 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] text-center space-y-4">
+                      <Clock className="w-10 h-10 text-[var(--text-muted)] mx-auto opacity-50" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold">No tasks scheduled for today</p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {tasks.length > 0
+                            ? `You have ${tasks.length} total tasks in your workspace. Schedule pending tasks below or explore your ESE 600-Day Plan.`
+                            : "Create a new task, schedule items from your backlog, or activate your ESE 600-Day Study Plan."}
+                        </p>
+                      </div>
+
+                      {unscheduledTasks.length > 0 && (
+                        <div className="pt-2 text-left space-y-2 border-t border-[var(--border)]">
+                          <p className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                            Unscheduled Backlog ({unscheduledTasks.length}):
+                          </p>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {unscheduledTasks.slice(0, 3).map((task) => (
+                              <div
+                                key={task.id}
+                                className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]/40 flex items-center justify-between gap-3 text-xs"
+                              >
+                                <span className="font-medium truncate">{task.title}</span>
+                                <button
+                                  onClick={() => handleScheduleTask(task)}
+                                  className="px-2.5 py-1 rounded-lg bg-[var(--accent-primary)] text-white text-[10px] font-semibold hover:opacity-90 shrink-0"
+                                >
+                                  Schedule Today
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-center gap-2 pt-2">
+                        <button
+                          onClick={() => setActiveView("all-tasks")}
+                          className="px-3 py-1.5 text-xs rounded-xl border border-[var(--border)] hover:bg-[var(--border)]"
+                        >
+                          View All Tasks ({tasks.length})
+                        </button>
+                        <Link
+                          href="/academics/ese"
+                          className="px-3 py-1.5 text-xs rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold"
+                        >
+                          View ESE 600-Day Plan
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
                   {todayTasks.map((task) => (
                     <TaskRow
                       key={task.id}
@@ -850,6 +895,8 @@ export function UnifiedTasksPlanner({
             )}
           </div>
         )}
+        </>
+      )}
       </main>
 
       {/* CREATE TASK MODAL */}
@@ -921,6 +968,38 @@ export function UnifiedTasksPlanner({
                     onChange={(e) => setNewDueDate(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-[var(--bg-primary)] border border-[var(--border)] outline-none"
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[var(--text-muted)] mb-1">Project (Optional)</label>
+                  <select
+                    value={newProjectId}
+                    onChange={(e) => setNewProjectId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-primary)] border border-[var(--border)] outline-none"
+                  >
+                    <option value="">No Project</option>
+                    {projectsList.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[var(--text-muted)] mb-1">Course (Optional)</label>
+                  <select
+                    value={newCourseId}
+                    onChange={(e) => setNewCourseId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-primary)] border border-[var(--border)] outline-none"
+                  >
+                    <option value="">No Course</option>
+                    {coursesList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.code} – {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-3">

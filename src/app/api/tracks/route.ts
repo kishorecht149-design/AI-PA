@@ -99,39 +99,46 @@ export async function POST(req: Request) {
       // Provision track courses as real user courses (isDemo: false)
       let createdCourses = 0;
       for (const c of track.courses) {
-        // Prevent duplicate course codes for this user
-        const existing = await prisma.course.findFirst({
-          where: { userId, code: c.code },
+        // Prevent duplicate course codes for this user using unique composite key
+        const existing = await prisma.course.findUnique({
+          where: { userId_code: { userId, code: c.code } },
         });
 
         if (!existing) {
-          await prisma.course.create({
-            data: {
-              userId,
-              code: c.code,
-              name: c.name,
-              semester: c.semester || null,
-              isGateSubject: c.isGateSubject,
-              confidence: 3,
-              isDemo: false,
-              track: track.id,
-              units: {
-                create: c.units.map((u) => ({
-                  unitNumber: u.unitNumber,
-                  title: u.title,
-                  topics: {
-                    create: u.topics.map((t) => ({
-                      title: t.title,
-                      description: t.description || null,
-                      status: "NOT_STARTED",
-                      confidenceLevel: 1,
-                    })),
-                  },
-                })),
+          try {
+            await prisma.course.create({
+              data: {
+                userId,
+                code: c.code,
+                name: c.name,
+                semester: c.semester || null,
+                isGateSubject: c.isGateSubject,
+                confidence: 3,
+                isDemo: false,
+                track: track.id,
+                units: {
+                  create: c.units.map((u) => ({
+                    unitNumber: u.unitNumber,
+                    title: u.title,
+                    topics: {
+                      create: u.topics.map((t) => ({
+                        title: t.title,
+                        description: t.description || null,
+                        status: "NOT_STARTED",
+                        confidenceLevel: 1,
+                      })),
+                    },
+                  })),
+                },
               },
-            },
-          });
-          createdCourses++;
+            });
+            createdCourses++;
+          } catch (createErr: any) {
+            // Ignore duplicate if created concurrently by another in-flight request
+            if (createErr.code !== "P2002") {
+              throw createErr;
+            }
+          }
         }
       }
 

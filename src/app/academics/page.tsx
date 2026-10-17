@@ -59,9 +59,12 @@ export default function AcademicsPage() {
   const [overallReadinessPct, setOverallReadinessPct] = useState(0);
   const [dueRevisionTopics, setDueRevisionTopics] = useState<any[]>([]);
   const [currentTrack, setCurrentTrack] = useState<string>("GATE_EC");
+  const [selectedTrackFilter, setSelectedTrackFilter] = useState<string>("ALL");
+  const [loadingTrack, setLoadingTrack] = useState<string | null>(null);
   const [hasDemoCourses, setHasDemoCourses] = useState<boolean>(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Active topic revision modal state
   const [selectedTopic, setSelectedTopic] = useState<{ id: string; title: string; courseCode: string } | null>(null);
@@ -71,11 +74,21 @@ export default function AcademicsPage() {
   const [revisionFeedback, setRevisionFeedback] = useState<string | null>(null);
 
   const fetchAcademics = async () => {
+    setLoading(true);
+    setError(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const [acadRes, trackRes] = await Promise.all([
-        fetch("/api/academics"),
-        fetch("/api/tracks"),
+        fetch("/api/academics", { signal: controller.signal }),
+        fetch("/api/tracks", { signal: controller.signal }),
       ]);
+
+      if (!acadRes.ok) {
+        const errData = await acadRes.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed to load syllabus (${acadRes.status})`);
+      }
 
       const data = await acadRes.json();
       if (data.courses) {
@@ -87,13 +100,17 @@ export default function AcademicsPage() {
         setHasDemoCourses(data.courses.some((c: CourseItem) => c.isDemo));
       }
 
-      const trackData = await trackRes.json();
-      if (trackData.currentTrack) {
-        setCurrentTrack(trackData.currentTrack);
+      if (trackRes.ok) {
+        const trackData = await trackRes.json();
+        if (trackData.currentTrack) {
+          setCurrentTrack(trackData.currentTrack);
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.name === "AbortError" ? "Request timed out while connecting to database. Please click Retry." : (e.message || "Failed to load academic records."));
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
@@ -285,9 +302,53 @@ export default function AcademicsPage() {
         </div>
       )}
 
+      {/* Error Alert with Retry */}
+      {error && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between gap-3 text-xs text-red-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => fetchAcademics()}
+            className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 font-semibold transition-colors shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Track Filter Tabs */}
+      {!loading && !error && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {[
+            { id: "ALL", label: `All Subjects (${courses.length})` },
+            { id: "GATE_EC", label: `GATE EC (${courses.filter((c) => c.track === "GATE_EC").length})` },
+            { id: "ESE_ET", label: `ESE E&T (${courses.filter((c) => c.track === "ESE_ET").length})` },
+            { id: "GATE_CS", label: `GATE CS (${courses.filter((c) => c.track === "GATE_CS").length})` },
+            { id: "ECE_CORE", label: `ECE Core (${courses.filter((c) => c.track === "ECE_CORE").length})` },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedTrackFilter(tab.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
+                selectedTrackFilter === tab.id
+                  ? "bg-white text-black border-white shadow-sm"
+                  : "bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Course Cards & Hierarchical Syllabus */}
       {loading ? (
-        <div className="py-20 text-center text-xs text-zinc-500">Loading syllabus...</div>
+        <div className="py-20 flex flex-col items-center justify-center space-y-3">
+          <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-zinc-400">Loading syllabus &amp; track records...</p>
+        </div>
       ) : courses.length === 0 ? (
         <div className="space-y-6 max-w-3xl mx-auto">
           <div className="p-8 md:p-10 rounded-3xl border border-zinc-800 bg-[#0a0a0a] text-center space-y-4 shadow-2xl">
@@ -328,12 +389,17 @@ export default function AcademicsPage() {
                 <div
                   key={trk.id}
                   onClick={async () => {
-                    await fetch("/api/tracks", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ action: "SELECT_TRACK", trackId: trk.id, clearDemo: false }),
-                    });
-                    fetchAcademics();
+                    setLoadingTrack(trk.id);
+                    try {
+                      await fetch("/api/tracks", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "SELECT_TRACK", trackId: trk.id, clearDemo: false }),
+                      });
+                      await fetchAcademics();
+                    } finally {
+                      setLoadingTrack(null);
+                    }
                   }}
                   className="p-4 rounded-2xl bg-[#0a0a0a] border border-zinc-800 hover:border-zinc-700 transition-all cursor-pointer group space-y-2 flex flex-col justify-between"
                 >
@@ -346,7 +412,7 @@ export default function AcademicsPage() {
                     </p>
                   </div>
                   <div className="pt-2 flex items-center justify-between text-[11px] text-zinc-500 group-hover:text-white transition-colors">
-                    <span>Load Track</span>
+                    <span>{loadingTrack === trk.id ? "Loading track..." : "Load Track"}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -354,9 +420,41 @@ export default function AcademicsPage() {
             </div>
           </div>
         </div>
+      ) : (selectedTrackFilter !== "ALL" && courses.filter((c) => c.track === selectedTrackFilter).length === 0) ? (
+        <div className="p-8 md:p-10 rounded-3xl border border-zinc-800 bg-[#0a0a0a] text-center space-y-4 max-w-xl mx-auto">
+          <GraduationCap className="w-10 h-10 text-cyan-400 mx-auto" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-white">
+              No courses loaded for {selectedTrackFilter.replace("_", " ")} yet
+            </h3>
+            <p className="text-xs text-zinc-400">
+              You can provision the complete standard syllabus outline for this track with one click.
+            </p>
+          </div>
+          <button
+            disabled={loadingTrack === selectedTrackFilter}
+            onClick={async () => {
+              setLoadingTrack(selectedTrackFilter);
+              try {
+                await fetch("/api/tracks", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "SELECT_TRACK", trackId: selectedTrackFilter, clearDemo: false }),
+                });
+                await fetchAcademics();
+              } finally {
+                setLoadingTrack(null);
+              }
+            }}
+            className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs transition-all shadow-md inline-flex items-center gap-2 disabled:opacity-50"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{loadingTrack === selectedTrackFilter ? "Provisioning Syllabus..." : `Load ${selectedTrackFilter.replace("_", " ")} Track`}</span>
+          </button>
+        </div>
       ) : (
         <div className="space-y-6">
-          {courses.map((course) => (
+          {(selectedTrackFilter === "ALL" ? courses : courses.filter((c) => c.track === selectedTrackFilter)).map((course) => (
             <div
               key={course.id}
               className="p-5 md:p-6 rounded-2xl bg-[#0a0a0a] border border-zinc-800 space-y-5"
