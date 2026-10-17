@@ -134,7 +134,20 @@ export async function evaluateDashboardOverview(userId: string): Promise<Dashboa
     if (sec.category === "layout_config") {
       try {
         const parsed = JSON.parse(sec.itemsJson || "{}");
-        if (parsed.desktopLayout) layoutConfig.desktopLayout = parsed.desktopLayout;
+        if (parsed.desktopLayout) {
+          // Ensure balanced layout: if w-projects is still on right with order 4 from legacy default, balance it to left
+          const isLegacyDefault =
+            Array.isArray(parsed.desktopLayout) &&
+            parsed.desktopLayout.some((w: any) => w.id === "w-projects" && w.column === "right" && w.order === 4);
+          if (isLegacyDefault) {
+            parsed.desktopLayout = parsed.desktopLayout.map((w: any) => {
+              if (w.id === "w-projects") return { ...w, column: "left", order: 3 };
+              if (w.id === "w-custom") return { ...w, column: "left", order: 4 };
+              return w;
+            });
+          }
+          layoutConfig.desktopLayout = parsed.desktopLayout;
+        }
         if (parsed.mobileLayout) layoutConfig.mobileLayout = parsed.mobileLayout;
         if (Array.isArray(parsed.dismissedAttentionIds)) layoutConfig.dismissedAttentionIds = parsed.dismissedAttentionIds;
         if (parsed.personalization) layoutConfig.personalization = { ...layoutConfig.personalization, ...parsed.personalization };
@@ -292,47 +305,92 @@ export async function evaluateDashboardOverview(userId: string): Promise<Dashboa
   // -------------------------------------------------------------------------
   const recentWork: RecentWorkItem[] = [];
 
-  // Priority 1: In-progress tasks
-  const inProgressTasks = (todayTasksRaw || []).filter((t) => t.status === "IN_PROGRESS");
+  // Helper to detect generic placeholder or empty titles
+  const isGenericTitle = (title?: string | null): boolean => {
+    if (!title) return true;
+    const clean = title.trim().toLowerCase();
+    const genericSet = new Set([
+      "new note",
+      "untitled",
+      "untitled note",
+      "quick note",
+      "new task",
+      "untitled task",
+      "draft",
+      "note",
+      "task",
+    ]);
+    return genericSet.has(clean) || clean.length < 2;
+  };
+
+  // Priority 1: Genuinely in-progress tasks (must have non-generic title)
+  const inProgressTasks = (todayTasksRaw || []).filter(
+    (t) => t.status === "IN_PROGRESS" && !isGenericTitle(t.title)
+  );
   for (const t of inProgressTasks) {
     recentWork.push({
       id: `task_${t.id}`,
       type: "task",
       title: t.title,
       subtitle: t.project?.name ? `Project: ${t.project.name}` : "Task in progress",
-      updatedAt: t.updatedAt ? (t.updatedAt.toISOString ? t.updatedAt.toISOString() : new Date(t.updatedAt).toISOString()) : now.toISOString(),
+      updatedAt: t.updatedAt
+        ? t.updatedAt.toISOString
+          ? t.updatedAt.toISOString()
+          : new Date(t.updatedAt).toISOString()
+        : now.toISOString(),
       href: `/tasks?id=${t.id}`,
       status: "IN_PROGRESS",
     });
   }
 
-  // Priority 2: Recent notes (not archived)
+  // Priority 2: Substantive recent notes (must have non-generic title and substantive content > 15 chars)
   for (const n of recentNotes || []) {
+    if (isGenericTitle(n.title)) continue;
+    const content = (n.contentMarkdown || "").trim();
+    if (content.length < 15) continue;
+
+    const hasUncheckedItems = /- \[[ ]\]/.test(content);
+    let subtitle = n.project?.name ? `Note in ${n.project.name}` : "Knowledge note";
+    if (hasUncheckedItems) {
+      subtitle = "Active working checklist";
+    }
+
     recentWork.push({
       id: `note_${n.id}`,
       type: "note",
       title: n.title,
-      subtitle: n.project?.name ? `Note in ${n.project.name}` : "Knowledge note",
-      updatedAt: n.updatedAt.toISOString ? n.updatedAt.toISOString() : new Date(n.updatedAt).toISOString(),
+      subtitle,
+      updatedAt: n.updatedAt?.toISOString
+        ? n.updatedAt.toISOString()
+        : new Date(n.updatedAt || now).toISOString(),
       href: `/notes?id=${n.id}`,
     });
   }
 
-  // Priority 3: Active projects
+  // Priority 3: Active projects with genuine pending unfinished tasks
   for (const p of activeProjects || []) {
     const totalT = p.tasks ? p.tasks.length : 0;
-    const compT = p.tasks ? p.tasks.filter((t: any) => t.status === "COMPLETED").length : 0;
-    recentWork.push({
-      id: `project_${p.id}`,
-      type: "project",
-      title: p.name,
-      subtitle: `${compT}/${totalT} tasks finished`,
-      updatedAt: p.updatedAt ? (p.updatedAt.toISOString ? p.updatedAt.toISOString() : new Date(p.updatedAt).toISOString()) : now.toISOString(),
-      href: `/projects?id=${p.id}`,
-    });
+    const pendingT = p.tasks ? p.tasks.filter((t: any) => t.status !== "COMPLETED").length : 0;
+    const compT = totalT - pendingT;
+
+    // Only include if project has at least 1 pending task (genuine unfinished work)
+    if (totalT > 0 && pendingT > 0) {
+      recentWork.push({
+        id: `project_${p.id}`,
+        type: "project",
+        title: p.name,
+        subtitle: `${pendingT} pending task${pendingT === 1 ? "" : "s"} (${compT}/${totalT} finished)`,
+        updatedAt: p.updatedAt
+          ? p.updatedAt.toISOString
+            ? p.updatedAt.toISOString()
+            : new Date(p.updatedAt).toISOString()
+          : now.toISOString(),
+        href: `/projects?id=${p.id}`,
+      });
+    }
   }
 
-  // Mark first as primary
+  // Mark first qualified item as primary
   if (recentWork.length > 0) {
     recentWork[0].isPrimary = true;
   }

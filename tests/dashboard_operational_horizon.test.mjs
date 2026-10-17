@@ -530,3 +530,165 @@ test("Dashboard 1.0 - Criterion 13 & 14: Fault resilience against corrupt layout
     prisma.customDashboardSection.findMany = originalCustomFindMany;
   }
 });
+
+test("Dashboard 1.0 Final Polish: Filters out generic/empty drafts, zero-task projects, and balances desktop widgets", async () => {
+  const userId = "user-dash-polish";
+  const originalUserFindUnique = prisma.user?.findUnique;
+  const originalTaskFindMany = prisma.task?.findMany;
+  const originalTaskCount = prisma.task?.count;
+  const originalTimeBlockFindMany = prisma.timeBlock?.findMany;
+  const originalFocusFindMany = prisma.focusSession?.findMany;
+  const originalHabitFindMany = prisma.habit?.findMany;
+  const originalGoalFindMany = prisma.goal?.findMany;
+  const originalNoteFindMany = prisma.note?.findMany;
+  const originalProjectFindMany = prisma.project?.findMany;
+  const originalCustomFindMany = prisma.customDashboardSection?.findMany;
+
+  try {
+    prisma.user.findUnique = async () => ({ id: userId, name: "Polish Test User" });
+    prisma.task.count = async () => 0;
+    prisma.timeBlock.findMany = async () => [];
+    prisma.focusSession.findMany = async () => [];
+    prisma.habit.findMany = async () => [];
+    prisma.goal.findMany = async () => [];
+
+    // Mock tasks: none in progress
+    prisma.task.findMany = async () => [];
+
+    // Mock notes: 1 generic empty note ("New Note"), 1 untitled short note, 1 substantive real note
+    prisma.note.findMany = async () => [
+      {
+        id: "note-generic-1",
+        title: "New Note",
+        contentMarkdown: "",
+        updatedAt: new Date(),
+      },
+      {
+        id: "note-generic-2",
+        title: "Untitled",
+        contentMarkdown: "short",
+        updatedAt: new Date(),
+      },
+      {
+        id: "note-substantive",
+        title: "Operating Systems Virtual Memory Architecture",
+        contentMarkdown: "Detailed breakdown of page tables, TLB misses, and kernel paging mechanisms.",
+        updatedAt: new Date(),
+        project: { name: "OS Course" },
+      },
+    ];
+
+    // Mock projects: 1 empty project (0 tasks like TAASC), 1 fully completed project, 1 active project with pending tasks
+    prisma.project.findMany = async () => [
+      {
+        id: "proj-empty",
+        name: "TAASC",
+        tasks: [],
+        updatedAt: new Date(),
+      },
+      {
+        id: "proj-all-done",
+        name: "Completed Sprint",
+        tasks: [{ id: "t-done", status: "COMPLETED" }],
+        updatedAt: new Date(),
+      },
+      {
+        id: "proj-active",
+        name: "Autonomous Agent Core",
+        tasks: [
+          { id: "t-1", status: "TODO" },
+          { id: "t-2", status: "COMPLETED" },
+        ],
+        updatedAt: new Date(),
+      },
+    ];
+
+    prisma.customDashboardSection.findMany = async () => [];
+
+    const json = await evaluateDashboardOverview(userId);
+
+    // 1. Verify generic/empty notes are strictly excluded
+    assert.equal(
+      json.recentWork.some((w) => w.id === "note_note-generic-1"),
+      false,
+      "Must exclude generic 'New Note' with empty content"
+    );
+    assert.equal(
+      json.recentWork.some((w) => w.id === "note_note-generic-2"),
+      false,
+      "Must exclude 'Untitled' note with trivial content"
+    );
+
+    // 2. Verify substantive note is included
+    const substantiveNote = json.recentWork.find((w) => w.id === "note_note-substantive");
+    assert.ok(substantiveNote, "Substantive note must be recommended");
+    assert.equal(substantiveNote.title, "Operating Systems Virtual Memory Architecture");
+
+    // 3. Verify zero-task project and all-completed project are excluded from recent work
+    assert.equal(
+      json.recentWork.some((w) => w.id === "project_proj-empty"),
+      false,
+      "Must exclude zero-task project (TAASC) from unfinished recent work"
+    );
+    assert.equal(
+      json.recentWork.some((w) => w.id === "project_proj-all-done"),
+      false,
+      "Must exclude project with 0 pending tasks from unfinished work"
+    );
+
+    // 4. Verify project with pending tasks is included
+    const activeProj = json.recentWork.find((w) => w.id === "project_proj-active");
+    assert.ok(activeProj, "Project with pending tasks must be included in recent work");
+    assert.ok(activeProj.subtitle.includes("1 pending task"));
+
+    // 5. Verify lower-page desktop layout balance
+    const desktop = json.layout.desktopLayout;
+    const projectWidget = desktop.find((w) => w.id === "w-projects");
+    assert.ok(projectWidget);
+    assert.equal(projectWidget.column, "left", "w-projects must be in the left column for balance");
+
+    // Check count of widgets in each column (excluding non-column top_overview)
+    const leftColumnWidgets = desktop.filter((w) => w.column === "left" && w.type !== "top_overview");
+    const rightColumnWidgets = desktop.filter((w) => w.column === "right");
+    assert.equal(leftColumnWidgets.length, 4, "Left column must have 4 widgets (attention, tasks, projects, custom)");
+    assert.equal(rightColumnWidgets.length, 4, "Right column must have 4 widgets (next, recent, pulse, habits)");
+
+    // 6. Test legacy layout migration for stored configs
+    prisma.customDashboardSection.findMany = async () => [
+      {
+        id: "legacy-sec",
+        userId,
+        title: "__dashboard_layout__",
+        category: "layout_config",
+        itemsJson: JSON.stringify({
+          desktopLayout: [
+            { id: "w-overview", type: "top_overview", column: "left", order: 0, visible: true },
+            { id: "w-attention", type: "attention_queue", column: "left", order: 1, visible: true },
+            { id: "w-tasks", type: "today_tasks", column: "left", order: 2, visible: true },
+            { id: "w-custom", type: "custom_sections", column: "left", order: 3, visible: true },
+            { id: "w-next", type: "next_activity", column: "right", order: 0, visible: true },
+            { id: "w-recent", type: "recent_work", column: "right", order: 1, visible: true },
+            { id: "w-pulse", type: "weekly_pulse", column: "right", order: 2, visible: true },
+            { id: "w-habits", type: "habits_routine", column: "right", order: 3, visible: true },
+            { id: "w-projects", type: "active_projects", column: "right", order: 4, visible: true },
+          ],
+        }),
+      },
+    ];
+
+    const migratedJson = await evaluateDashboardOverview(userId);
+    const migratedProjWidget = migratedJson.layout.desktopLayout.find((w) => w.id === "w-projects");
+    assert.equal(migratedProjWidget.column, "left", "Legacy layout must be automatically balanced to left column");
+  } finally {
+    prisma.user.findUnique = originalUserFindUnique;
+    prisma.task.findMany = originalTaskFindMany;
+    prisma.task.count = originalTaskCount;
+    prisma.timeBlock.findMany = originalTimeBlockFindMany;
+    prisma.focusSession.findMany = originalFocusFindMany;
+    prisma.habit.findMany = originalHabitFindMany;
+    prisma.goal.findMany = originalGoalFindMany;
+    prisma.note.findMany = originalNoteFindMany;
+    prisma.project.findMany = originalProjectFindMany;
+    prisma.customDashboardSection.findMany = originalCustomFindMany;
+  }
+});

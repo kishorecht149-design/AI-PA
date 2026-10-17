@@ -75,7 +75,10 @@ export function ActiveProjectsWidget() {
       ) : (
         <div className="space-y-2.5">
           {projects.slice(0, 4).map((project) => {
-            const pct = project.calculatedProgress || 0;
+            const totalUnits = (project.totalTasks || 0) + (project.totalMilestones || 0);
+            const hasUnits = totalUnits > 0;
+            const pct = hasUnits ? (project.calculatedProgress ?? 0) : null;
+
             return (
               <Link
                 key={project.id}
@@ -86,25 +89,43 @@ export function ActiveProjectsWidget() {
                   <span className="text-xs font-bold text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] transition-colors truncate">
                     {project.name}
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-[var(--text-muted)]">
-                    {pct}%
-                  </span>
+                  {hasUnits ? (
+                    <span className="text-[10px] font-mono font-bold text-[var(--text-muted)]">
+                      {pct}%
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-[var(--text-muted)] italic font-medium">
+                      No tasks linked yet
+                    </span>
+                  )}
                 </div>
 
-                <div className="w-full bg-[var(--border)] h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${pct}%`,
-                      backgroundColor: project.color || "var(--accent-primary)",
-                    }}
-                  />
-                </div>
+                {hasUnits ? (
+                  <>
+                    <div className="w-full bg-[var(--border)] h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: project.color || "var(--accent-primary)",
+                        }}
+                      />
+                    </div>
 
-                <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--text-muted)]">
-                  <span>{project.completedTasks} / {project.totalTasks} tasks</span>
-                  <span className="uppercase">{project.category || "General"}</span>
-                </div>
+                    <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--text-muted)]">
+                      <span>{project.completedTasks} / {project.totalTasks} tasks</span>
+                      <span className="uppercase">{project.category || "General"}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between mt-1 pt-1 border-t border-[var(--border)]/40 text-[10px]">
+                    <span className="text-[var(--accent-primary)] font-semibold inline-flex items-center gap-1 group-hover:underline">
+                      <span>Open Project & add tasks</span>
+                      <ArrowRight className="w-2.5 h-2.5" />
+                    </span>
+                    <span className="uppercase text-[var(--text-muted)]">{project.category || "General"}</span>
+                  </div>
+                )}
               </Link>
             );
           })}

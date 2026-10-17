@@ -130,12 +130,12 @@ export const DEFAULT_DESKTOP_WIDGETS: WidgetInstance[] = [
   { id: "w-overview", type: "top_overview", column: "left", order: 0, visible: true, title: "Overview & Daily Horizon" },
   { id: "w-attention", type: "attention_queue", column: "left", order: 1, visible: true, title: "Needs Your Attention" },
   { id: "w-tasks", type: "today_tasks", column: "left", order: 2, visible: true, title: "Today's Focus Queue" },
-  { id: "w-custom", type: "custom_sections", column: "left", order: 3, visible: true, title: "Curated Resource Folders" },
+  { id: "w-projects", type: "active_projects", column: "left", order: 3, visible: true, title: "Active Projects" },
+  { id: "w-custom", type: "custom_sections", column: "left", order: 4, visible: true, title: "Curated Resource Folders" },
   { id: "w-next", type: "next_activity", column: "right", order: 0, visible: true, title: "Next Activity" },
   { id: "w-recent", type: "recent_work", column: "right", order: 1, visible: true, title: "Pick Up Where You Left Off" },
   { id: "w-pulse", type: "weekly_pulse", column: "right", order: 2, visible: true, title: "Weekly Progress" },
   { id: "w-habits", type: "habits_routine", column: "right", order: 3, visible: true, title: "Habits & Routine" },
-  { id: "w-projects", type: "active_projects", column: "right", order: 4, visible: true, title: "Active Projects" },
 ];
 
 export const DEFAULT_MOBILE_WIDGETS: WidgetInstance[] = [
