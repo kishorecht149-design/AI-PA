@@ -48,8 +48,8 @@ export function CommandBar({ isOpen, onClose }: CommandBarProps) {
   };
 
   const quickLinks = [
-    { name: "Planner & Time Blocks", path: "/planner", icon: Calendar, category: "Navigation" },
-    { name: "Task Backlog & Kanban", path: "/tasks", icon: CheckSquare, category: "Navigation" },
+    { name: "Tasks & Planner (Unified Schedule, Kanban & Today)", path: "/planner", icon: Calendar, category: "Navigation" },
+    { name: "ESE 600-Day Mastery System (Academics → ESE)", path: "/academics/ese", icon: GraduationCap, category: "Academics" },
     { name: "Academic Courses & Syllabus", path: "/academics", icon: GraduationCap, category: "Navigation" },
     { name: "Research Lab & Papers", path: "/research", icon: Microscope, category: "Navigation" },
     { name: "Learning Studio (8 Languages & GK)", path: "/learning", icon: BookOpen, category: "Navigation" },

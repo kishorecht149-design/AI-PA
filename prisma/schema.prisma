@@ -64,6 +64,10 @@ model User {
   supportSessionsAsAdmin  AdminSupportSession[] @relation("AdminUser")
   adminAuditLogsCreated   AdminAuditLog[]       @relation("AdminAuditor")
   adminAuditLogsTargeted  AdminAuditLog[]       @relation("TargetAudited")
+  esePlans      EsePlan[]
+  eseEvidences  EseTaskEvidence[]
+  eseResources  EseResource[]
+  eseProgress   EseSyllabusProgress[]
 
   @@index([email])
   @@index([phoneNumber])
@@ -144,6 +148,16 @@ model Task {
   timeBlocks      TimeBlock[]
   dependencies    TaskDependency[] @relation("DependentTasks")
   dependentOn     TaskDependency[] @relation("PrerequisiteTasks")
+
+  eseNodeId           String?
+  esePlanId           String?
+  eseDayNumber        Int?
+  eseTaskType         String?
+  evidenceUrl         String?
+  evidenceAttested    Boolean          @default(false)
+  evidenceAttestedAt  DateTime?
+  evidenceAttestation String?
+  eseEvidence         EseTaskEvidence[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -992,4 +1006,98 @@ model PaymentWebhookEvent {
   processedAt DateTime?
 
   @@unique([provider, eventId])
+}
+
+// -----------------------------------------------------------------------------
+// 16. ESE 600-Day Mastery System Models
+// -----------------------------------------------------------------------------
+
+model EsePlan {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startDate   DateTime
+  endDate     DateTime
+  status      String       @default("DRAFT") // "DRAFT" | "ACTIVE" | "COMPLETED"
+  currentDay  Int          @default(1)
+  timeZone    String       @default("Asia/Kolkata")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  days        EsePlanDay[]
+  resources   EseResource[]
+
+  @@index([userId, status])
+}
+
+model EsePlanDay {
+  id                    String   @id @default(cuid())
+  planId                String
+  plan                  EsePlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dayNumber             Int
+  date                  DateTime
+  phase                 String
+  focusSummary          String
+  totalEstimatedMinutes Int      @default(0)
+  completed             Boolean  @default(false)
+
+  @@unique([planId, dayNumber])
+  @@index([planId, date])
+}
+
+model EseTaskEvidence {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId          String
+  task            Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  nodeId          String
+  driveUrl        String
+  attestationText String
+  attestedAt      DateTime @default(now())
+  submittedBy     String
+
+  @@index([userId, taskId])
+  @@index([userId, nodeId])
+}
+
+model EseResource {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId        String?
+  plan          EsePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  taskId        String?
+  title         String
+  url           String
+  resourceType  String   @default("GOOGLE_DRIVE")
+  subjectName   String?
+  chapterTitle  String?
+  topicTitle    String?
+  subtopicTitle String?
+  nodeId        String?
+  isClassified  Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, url])
+  @@index([userId, isClassified])
+  @@index([userId, nodeId])
+}
+
+model EseSyllabusProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeId        String
+  status        String    @default("NOT_STARTED") // "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
+  completedAt   DateTime?
+  evidenceUrl   String?
+  revisionCount Int       @default(0)
+  lastStudiedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, nodeId])
+  @@index([userId, status])
 }

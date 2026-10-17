@@ -53,9 +53,8 @@ const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
   {
     group: "Execution",
     items: [
-      { name: "Planner", href: "/planner", icon: Calendar },
+      { name: "Tasks & Planner", href: "/planner", icon: Calendar },
       { name: "Deep Work Arena", href: "/focus", icon: Zap },
-      { name: "Tasks", href: "/tasks", icon: CheckSquare },
       { name: "Projects", href: "/projects", icon: FolderKanban },
       { name: "Reminders & Alarms", href: "/reminders", icon: Bell },
     ],
@@ -440,24 +439,13 @@ export function Navigation({
         <Link
           href="/planner"
           className={`flex flex-col items-center gap-1 text-[10px] ${
-            pathname.startsWith("/planner")
+            pathname.startsWith("/planner") || pathname.startsWith("/tasks")
               ? "text-[var(--accent-primary)] font-semibold"
               : "text-[var(--text-muted)]"
           }`}
         >
           <Calendar className="w-4 h-4" />
-          <span>Planner</span>
-        </Link>
-        <Link
-          href="/tasks"
-          className={`flex flex-col items-center gap-1 text-[10px] ${
-            pathname.startsWith("/tasks")
-              ? "text-[var(--accent-primary)] font-semibold"
-              : "text-[var(--text-muted)]"
-          }`}
-        >
-          <CheckSquare className="w-4 h-4" />
-          <span>Tasks</span>
+          <span>Tasks &amp; Planner</span>
         </Link>
         <Link
           href="/academics"

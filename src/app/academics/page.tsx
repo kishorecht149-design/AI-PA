@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   GraduationCap,
   BookOpen,
@@ -199,6 +200,33 @@ export default function AcademicsPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ESE 600-Day Mastery System Featured Banner */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-[var(--bg-card)] border border-purple-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <GraduationCap className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white">ESE 600-Day Mastery System</h2>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-semibold">
+                Academics &rarr; ESE
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              UPSC Engineering Services Examination comprehensive 6-phase master curriculum (22 Subjects, 78 Chapters, 351 Subtopics).
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/academics/ese"
+          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+        >
+          <span>Open ESE Studio</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
       </div>
 
       {/* Demo courses notice banner if demo records exist */}

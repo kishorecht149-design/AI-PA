@@ -99,12 +99,35 @@ export async function PATCH(req: Request) {
     await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
 
     const body = await req.json();
-    const { id, status, actualMinutes, priority, title, dueDate } = body;
+    const { id, status, actualMinutes, priority, title, dueDate, scheduledDate, driveUrl, attestationConfirmed } = body;
 
     const existing = await prisma.task.findFirst({
       where: { id, userId },
     });
     if (!existing) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+
+    const isEseStudyTask = existing.externalSource === "ESE_600_DAY_PLAN" || !!existing.eseNodeId;
+
+    // Enforce mandatory Google Drive evidence and attestation for ESE study task completion
+    if (isEseStudyTask && status === "COMPLETED" && existing.status !== "COMPLETED") {
+      if (!driveUrl || !attestationConfirmed) {
+        return NextResponse.json(
+          {
+            error: "A study task cannot transition to Completed unless you provide a valid Google Drive notes URL and confirm the attestation.",
+            code: "EVIDENCE_REQUIRED",
+          },
+          { status: 400 }
+        );
+      }
+      const { completeEseTaskWithEvidence } = await import("@/lib/ese/service");
+      const result = await completeEseTaskWithEvidence(
+        userId,
+        id,
+        driveUrl,
+        attestationConfirmed
+      );
+      return NextResponse.json({ task: result.task, evidenceUrl: result.evidenceUrl });
+    }
 
     let updated;
     const isNewCompletion = status === "COMPLETED" && existing.status !== "COMPLETED";
@@ -130,6 +153,7 @@ export async function PATCH(req: Request) {
             ...(priority && { priority }),
             ...(title && { title: title.trim() }),
             ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+            ...(scheduledDate !== undefined && { scheduledDate: scheduledDate ? new Date(scheduledDate) : null }),
           },
         }),
         prisma.auditEvent.create({
@@ -152,8 +176,30 @@ export async function PATCH(req: Request) {
           ...(priority && { priority }),
           ...(title && { title: title.trim() }),
           ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+          ...(scheduledDate !== undefined && { scheduledDate: scheduledDate ? new Date(scheduledDate) : null }),
         },
       });
+    }
+
+    // Synchronize linked TimeBlocks in Planner
+    try {
+      if (status !== undefined) {
+        await prisma.timeBlock.updateMany({
+          where: { taskId: id, userId },
+          data: { completed: status === "COMPLETED" },
+        });
+      }
+      if (scheduledDate !== undefined && scheduledDate) {
+        const newStart = new Date(`${scheduledDate.substring(0, 10)}T09:00:00.000Z`);
+        const duration = updated.estimatedMinutes || 45;
+        const newEnd = new Date(newStart.getTime() + duration * 60000);
+        await prisma.timeBlock.updateMany({
+          where: { taskId: id, userId },
+          data: { startTime: newStart, endTime: newEnd },
+        });
+      }
+    } catch (syncErr) {
+      console.warn("[Tasks Route] TimeBlock sync notice:", syncErr);
     }
 
     if (dueDate && (!existing.dueDate || new Date(dueDate).getTime() !== new Date(existing.dueDate).getTime())) {
