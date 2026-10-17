@@ -144,9 +144,16 @@ export function FloatingAssistantDock() {
 
       if (data.requiresConfirmation && data.toolCalls && data.toolCalls.length > 0) {
         const call = data.toolCalls[0];
+        let toolArgs = {};
+        try {
+          toolArgs =
+            typeof call.function?.arguments === "object"
+              ? call.function.arguments
+              : JSON.parse(call.function?.arguments || "{}");
+        } catch {}
         setPendingTool({
           toolName: call.function?.name,
-          args: JSON.parse(call.function?.arguments || "{}"),
+          args: toolArgs,
           callId: call.id,
           idempotencyKey: `dock_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
           confirmationToken: data.confirmationToken,

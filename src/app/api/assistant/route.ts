@@ -235,13 +235,20 @@ export async function POST(req: Request) {
       });
     }
 
+    const finalConfirmationToken = confirmationToken || response.confirmationToken;
+    const executionState =
+      response.executionState ||
+      (response.requiresConfirmation ? "awaiting_confirmation" : "completed");
+
     return NextResponse.json({
       message: savedMsg,
       behaviorCommand,
       toolCalls: response.toolCalls,
       requiresConfirmation: response.requiresConfirmation,
-      confirmationToken,
+      confirmationToken: finalConfirmationToken,
       executedToolResults: response.executedToolResults,
+      executionState,
+      plan: response.plan,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

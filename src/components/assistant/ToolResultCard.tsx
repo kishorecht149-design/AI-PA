@@ -10,6 +10,8 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  FileText,
+  Clock,
 } from "lucide-react";
 import { decodeHtmlEntities, sanitizeUrl } from "@/lib/format-utils";
 
@@ -134,6 +136,41 @@ export function ToolResultCard({ toolName, result }: ToolResultCardProps) {
         <div className="space-y-0.5 min-w-0">
           <div className="font-semibold text-purple-300">
             {result.message || "Reminder Created"}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 5. Note Creation Confirmation
+  if (toolName === "create_note") {
+    const note = result.note;
+    return (
+      <div className="my-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-2.5">
+        <FileText className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="space-y-0.5 min-w-0">
+          <div className="font-semibold text-amber-300">
+            {result.message || "Note Saved"}
+          </div>
+          {note && (
+            <div className="text-[11px] text-amber-300/80 font-mono">
+              Title: {note.title}
+              {note.researchProjectId ? " • Research Connected" : note.projectId ? " • Project Connected" : ""}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // 6. Focus Block Confirmation
+  if (toolName === "schedule_focus_block") {
+    return (
+      <div className="my-2 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-start gap-2.5">
+        <Clock className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+        <div className="space-y-0.5 min-w-0">
+          <div className="font-semibold text-indigo-300">
+            {result.message || "Focus Block Scheduled"}
           </div>
         </div>
       </div>

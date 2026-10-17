@@ -459,6 +459,61 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
     },
   },
 
+  get_projects: {
+    name: "get_projects",
+    description: "Retrieve active engineering and research projects in the student's workspace.",
+    isReadOnly: true,
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Optional title or name keyword to filter projects" },
+        type: { type: "string", description: "Filter type: 'engineering', 'research', or 'all'", enum: ["engineering", "research", "all"] },
+      },
+      required: [],
+    },
+    execute: async (userId, args) => {
+      const type = args?.type || "all";
+      const q = args?.query ? String(args.query).trim() : "";
+
+      let engineeringProjects: any[] = [];
+      let researchProjects: any[] = [];
+
+      try {
+        if ((type === "engineering" || type === "all") && prisma.project) {
+          const where: any = { userId };
+          if (q) where.name = { contains: q, mode: "insensitive" };
+          engineeringProjects = await prisma.project.findMany({
+            where,
+            take: 10,
+            select: { id: true, name: true, description: true, status: true, priority: true },
+          });
+        }
+      } catch (err: any) {
+        console.warn(`[get_projects] Engineering project query skipped: ${err.message}`);
+      }
+
+      try {
+        if ((type === "research" || type === "all") && prisma.researchProject) {
+          const where: any = { userId };
+          if (q) where.title = { contains: q, mode: "insensitive" };
+          researchProjects = await prisma.researchProject.findMany({
+            where,
+            take: 10,
+            select: { id: true, title: true, description: true, status: true },
+          });
+        }
+      } catch (err: any) {
+        console.warn(`[get_projects] Research project query skipped: ${err.message}`);
+      }
+
+      return {
+        total: engineeringProjects.length + researchProjects.length,
+        engineeringProjects,
+        researchProjects,
+      };
+    },
+  },
+
   create_task: {
     name: "create_task",
     description: "Create a new student task with priority, estimated minutes, due date, course code, or project.",
@@ -1124,6 +1179,7 @@ export function getToolsForIntent(intent: string): Record<string, ToolDefinition
         delete_task: APPLICATION_TOOLS.delete_task,
         create_reminder: APPLICATION_TOOLS.create_reminder,
         get_schedule: APPLICATION_TOOLS.get_schedule,
+        get_projects: APPLICATION_TOOLS.get_projects,
       };
     case "application_query":
       return Object.fromEntries(
@@ -1132,6 +1188,8 @@ export function getToolsForIntent(intent: string): Record<string, ToolDefinition
     case "knowledge_query":
       return {
         search_notes: APPLICATION_TOOLS.search_notes,
+        create_note: APPLICATION_TOOLS.create_note,
+        get_projects: APPLICATION_TOOLS.get_projects,
         get_academic_records: APPLICATION_TOOLS.get_academic_records,
       };
     case "web_research":

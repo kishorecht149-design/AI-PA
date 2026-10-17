@@ -207,8 +207,30 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
     };
   }
 
+  // 4.5 ACADEMIC_PLANNING — Spaced repetition and revision planning
+  // Examples: "Plan my revision for tomorrow", "Plan tomorrow's revision", "Schedule revision for my exams"
+  const isRevisionPlanning =
+    /(?:plan|schedule|organize|set\s+up)\s+(?:my\s+)?(?:revision|study\s+plan|spaced\s+repetition)/i.test(lower) ||
+    /plan\s+tomorrow'?s\s+(?:revision|study)/i.test(lower);
+
+  if (isRevisionPlanning) {
+    return {
+      intent: "application_action",
+      confidence: 0.96,
+      targetDomain: "academics",
+      allowedToolNames: [
+        "get_academic_records",
+        "get_schedule",
+        "create_reminder",
+        "schedule_focus_block",
+        "create_task",
+      ],
+      reason: "Request to plan and organize academic revision workflow.",
+    };
+  }
+
   // 5. TASK_MANAGEMENT — Tasks, Todos, Reminders
-  // Examples: "What tasks do I have today?", "Create a task to finish lab", "Create a revision task for my next assessment", "Move tomorrow's task to Friday"
+  // Examples: "What tasks do I have today?", "Create a task to finish lab", "Create a task for my research project and remind me before its deadline"
   const isReminderCreation =
     /(?:remind\s+me|create\s+(?:a\s+)?reminder|set\s+(?:a\s+)?reminder|add\s+(?:a\s+)?reminder)/i.test(
       lower
@@ -222,6 +244,17 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
     );
   const isTaskUpdate =
     /(?:mark\s+task|complete\s+task|finish\s+task|update\s+task\s+status|move\s+.*task\s+to|reschedule\s+.*task|postpone\s+.*task)/i.test(lower);
+
+  // Combined Task + Reminder Creation (Workflow B)
+  if (isTaskCreation && isReminderCreation) {
+    return {
+      intent: "task_management",
+      confidence: 0.98,
+      targetDomain: "tasks",
+      allowedToolNames: ["create_task", "create_reminder", "get_projects", "get_tasks", "get_schedule"],
+      reason: "Multi-step request to create a task and set a linked reminder.",
+    };
+  }
 
   if (isReminderCreation) {
     return {
@@ -248,7 +281,7 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
       intent: "task_management",
       confidence: 0.95,
       targetDomain: "tasks",
-      allowedToolNames: ["create_task", "update_task", "update_task_status", "get_tasks", "create_reminder"],
+      allowedToolNames: ["create_task", "update_task", "update_task_status", "get_tasks", "create_reminder", "get_projects"],
       extractedEntity: taskTitle ? { taskTitle } : undefined,
       suggestedAction: isTaskCreation && taskTitle ? {
         toolName: "create_task",
@@ -265,6 +298,25 @@ export function classifyIntent(rawMessage: string): IntentRouteResult {
       targetDomain: "tasks",
       allowedToolNames: ["get_tasks", "get_schedule"],
       reason: "Request to inspect existing tasks and schedule.",
+    };
+  }
+
+  // 5.5 NOTE_CAPTURE — Saving ideas, findings, or notes into knowledge graph (Workflow C)
+  // Examples: "Save this idea in my research notes and connect it to the relevant project", "Take a note about...", "Save note"
+  const isNoteCapture =
+    /(?:save|write|record|put|store|capture|take)\s+(?:this\s+)?(?:idea|note|thought|finding|summary)?\s*(?:in(?:to)?\s+(?:my\s+)?(?:research\s+)?notes?)/i.test(
+      lower
+    ) ||
+    /(?:save|create|add)\s+(?:a\s+)?(?:new\s+)?note/i.test(lower) ||
+    /take\s+(?:a\s+)?note/i.test(lower);
+
+  if (isNoteCapture) {
+    return {
+      intent: "application_action",
+      confidence: 0.95,
+      targetDomain: "notes",
+      allowedToolNames: ["create_note", "get_projects", "search_notes"],
+      reason: "Request to create or save a note/idea into the workspace.",
     };
   }
 

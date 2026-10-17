@@ -3,12 +3,15 @@ import {
   RESEARCH_TOOLS,
   ALL_TOOLS,
   getToolsForIntent,
+  validateToolArgs,
   type ToolDefinition,
 } from "./tools-registry.ts";
 import { prisma } from "./prisma.ts";
 import { providerManager } from "./providers/index.ts";
 import { classifyIntent, type IntentRouteResult } from "./intent-router.ts";
 import { decodeHtmlEntities } from "./format-utils.ts";
+import { assistantEngine, type ExecutionPlan, type ExecutionState } from "./assistant-engine.ts";
+import { generateConfirmationToken } from "./tool-confirmation.ts";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -193,7 +196,10 @@ export class AIGateway {
     message: ChatMessage;
     toolCalls?: any[];
     requiresConfirmation?: boolean;
+    confirmationToken?: string;
     executedToolResults?: any[];
+    plan?: ExecutionPlan;
+    executionState?: ExecutionState;
   }> {
     // 1. Fetch user profile and approved memories
     const [user, memories] = await Promise.all([
@@ -235,43 +241,55 @@ export class AIGateway {
     }
 
     // -------------------------------------------------------------------------
-    // CASE B: DETERMINISTIC APPLICATION ACTION
-    // When the user gives an unambiguous instruction (e.g. "Add Antennas and Wave Propagation to my academic plan"),
-    // execute the real server-side tool directly.
+    // CASE B: AUTONOMOUS ASSISTANT ENGINE (Bounded Workflow Planning & Execution)
     // -------------------------------------------------------------------------
-    if (intentResult.intent === "application_action" && intentResult.suggestedAction) {
-      const { toolName, suggestedArgs } = intentResult.suggestedAction;
-      const toolDef = APPLICATION_TOOLS[toolName];
-      if (toolDef && !toolDef.isDestructive) {
-        try {
-          const execResult = await toolDef.execute(userId, suggestedArgs);
-          return {
-            message: {
-              role: "assistant",
-              content:
-                execResult.message ||
-                `I have updated your academic plan with "${suggestedArgs.name || "the course"}".`,
+    const userContext = await assistantEngine.resolveUserContext(userId);
+    const workflowPlanning = await assistantEngine.planWorkflow(
+      userId,
+      lastUserMessage,
+      intentResult,
+      userContext
+    );
+
+    if (workflowPlanning.clarification) {
+      return {
+        message: {
+          role: "assistant",
+          content: workflowPlanning.clarification,
+        },
+        executionState: "completed",
+        requiresConfirmation: false,
+      };
+    }
+
+    if (workflowPlanning.plan) {
+      const execution = await assistantEngine.executePlan(workflowPlanning.plan, userId);
+      const content = assistantEngine.synthesizeResponse(execution.plan, userName);
+      let toolCalls: any[] | undefined = undefined;
+      if (execution.requiresConfirmation) {
+        const step = execution.plan.steps[execution.plan.currentStepIndex];
+        toolCalls = [
+          {
+            id: `call_${Date.now()}`,
+            function: {
+              name: step.toolName,
+              arguments: JSON.stringify(step.args),
             },
-            executedToolResults: [{ toolName, result: execResult }],
-            toolCalls: [
-              {
-                id: `call_${Date.now()}`,
-                function: {
-                  name: toolName,
-                  arguments: JSON.stringify(suggestedArgs),
-                },
-              },
-            ],
-          };
-        } catch (err: any) {
-          return {
-            message: {
-              role: "assistant",
-              content: `Failed to update academic record: ${err.message}. Please check the input and try again.`,
-            },
-          };
-        }
+          },
+        ];
       }
+      return {
+        message: {
+          role: "assistant",
+          content,
+        },
+        plan: execution.plan,
+        executionState: execution.plan.state,
+        executedToolResults: execution.executedResults,
+        requiresConfirmation: execution.requiresConfirmation,
+        confirmationToken: execution.confirmationToken,
+        toolCalls,
+      };
     }
 
     // -------------------------------------------------------------------------
@@ -398,12 +416,22 @@ Your Personality & Voice:
               if (hasDestructiveTool) {
                 const firstCall = toolCalls[0];
                 const toolName = firstCall.function?.name;
+                let args = {};
+                try {
+                  args = JSON.parse(firstCall.function?.arguments || "{}");
+                } catch {}
+                const confirmationToken = generateConfirmationToken({
+                  userId,
+                  toolName,
+                  args,
+                });
                 const readable = `I've prepared the ${toolName?.replace(/_/g, " ")} action. Because this is a destructive operation, please review and confirm below:`;
                 assistantMsg.content = assistantMsg.content?.trim() || readable;
                 return {
                   message: assistantMsg,
                   toolCalls: assistantMsg.tool_calls,
                   requiresConfirmation: true,
+                  confirmationToken,
                 };
               }
 
@@ -421,6 +449,21 @@ Your Personality & Voice:
                   } catch {
                     args = {};
                   }
+
+                  // Strict server-side argument validation
+                  const validation = validateToolArgs(toolDef, args);
+                  if (!validation.valid) {
+                    const validationErr = `Invalid arguments for '${toolName}': ${validation.errors.join("; ")}`;
+                    executedResults.push({ toolName, error: validationErr });
+                    toolResultMessages.push({
+                      role: "tool",
+                      name: toolName,
+                      tool_call_id: tc.id,
+                      content: JSON.stringify({ error: validationErr }),
+                    });
+                    continue;
+                  }
+
                   try {
                     const execResult = await toolDef.execute(userId, args);
                     executedResults.push({ toolName, result: execResult });
