@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { resolveApiUserId, assertWorkspaceWriteAccess } from "@/lib/auth";
 import { activateOrUpdateEsePlan, getEseOverview } from "@/lib/ese/service";
 import { generate600DayPlan } from "@/lib/ese/schedule-generator";
+import { isOwnerEseExempt } from "@/lib/ese/owner-exemption";
 
 export async function GET(req: Request) {
   try {
@@ -32,7 +33,13 @@ export async function POST(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
+
+    // Owner account exemption: allows the specific owner account to activate the 600-day plan
+    // without requiring prior email & mobile identity verification.
+    // For every other account, strict workspace write & verification checks are preserved.
+    if (!isOwnerEseExempt(userId)) {
+      await assertWorkspaceWriteAccess(userId, req.headers.get("x-support-session-id"));
+    }
 
     const body = await req.json();
     const { startDate, previewOnly } = body;

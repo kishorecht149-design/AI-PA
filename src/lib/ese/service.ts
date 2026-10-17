@@ -14,8 +14,10 @@ import {
   computeKolkataDate,
 } from "./schedule-generator.ts";
 import type { EseGeneratedPlan } from "./schedule-generator.ts";
+import { isOwnerEseExempt } from "./owner-exemption.ts";
 
 export interface EseOverviewResponse {
+  isOwnerExempt?: boolean;
   hasPlan: boolean;
   plan: {
     id?: string;
@@ -119,6 +121,7 @@ export async function getEseOverview(userId: string): Promise<EseOverviewRespons
   ];
 
   return {
+    isOwnerExempt: isOwnerEseExempt(userId),
     hasPlan: !!plan,
     plan: {
       id: plan?.id,

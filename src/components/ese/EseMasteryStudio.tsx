@@ -50,6 +50,7 @@ export function EseMasteryStudio() {
   );
   const [activatingPlan, setActivatingPlan] = useState(false);
   const [planSuccessMessage, setPlanSuccessMessage] = useState<string | null>(null);
+  const [planErrorMessage, setPlanErrorMessage] = useState<string | null>(null);
 
   // Plan Explorer state
   const [planExplorerDay, setPlanExplorerDay] = useState<number>(1);
@@ -125,6 +126,7 @@ export function EseMasteryStudio() {
   const handleActivatePlan = async () => {
     setActivatingPlan(true);
     setPlanSuccessMessage(null);
+    setPlanErrorMessage(null);
     try {
       const res = await fetch("/api/ese/plan", {
         method: "POST",
@@ -140,7 +142,7 @@ export function EseMasteryStudio() {
       fetchOverview();
       fetchPreviewPlan(selectedStartDate);
     } catch (err: any) {
-      alert(err.message);
+      setPlanErrorMessage(err.message || "Failed to activate plan");
     } finally {
       setActivatingPlan(false);
     }
@@ -273,9 +275,17 @@ export function EseMasteryStudio() {
             <div className="p-6 rounded-3xl border border-[var(--border)] bg-gradient-to-br from-[var(--bg-card)] via-[var(--bg-card)]/80 to-purple-950/20 shadow-xl space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <span className="text-xs font-mono uppercase tracking-wider text-purple-400 font-semibold">
-                    {overview?.plan.countdownActive ? "Active Mastery Countdown" : "Plan Pre-Activation"}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono uppercase tracking-wider text-purple-400 font-semibold">
+                      {overview?.plan.countdownActive ? "Active Mastery Countdown" : "Plan Pre-Activation"}
+                    </span>
+                    {overview?.isOwnerExempt && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Owner Account • Direct Plan Activation Enabled
+                      </span>
+                    )}
+                  </div>
                   <h2 className="text-2xl font-extrabold text-[var(--text-primary)]">
                     {overview?.plan.countdownActive
                       ? `Day ${overview.plan.currentDay} of 600 • ${overview.plan.daysRemaining} Days Remaining`
@@ -328,6 +338,21 @@ export function EseMasteryStudio() {
                 <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>{planSuccessMessage}</span>
+                </div>
+              )}
+
+              {planErrorMessage && (
+                <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 text-xs flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                    <span>{planErrorMessage}</span>
+                  </div>
+                  <button
+                    onClick={() => setPlanErrorMessage(null)}
+                    className="text-red-400 hover:text-red-200 text-xs font-bold px-1"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               )}
 
