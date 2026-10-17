@@ -361,12 +361,15 @@ export async function GET() {
         },
       });
 
-      // Cross-connect note if related to any project or course
+      // Cross-connect note if related to any project, course, or research project
       if (note.projectId && existingNodeIds.has(`proj-${note.projectId}`)) {
         addLink({ source: nId, target: `proj-${note.projectId}`, label: "documents_project" });
       }
       if (note.courseId && existingNodeIds.has(`course-${note.courseId}`)) {
         addLink({ source: nId, target: `course-${note.courseId}`, label: "documents_course" });
+      }
+      if (note.researchProjectId && existingNodeIds.has(`research-${note.researchProjectId}`)) {
+        addLink({ source: nId, target: `research-${note.researchProjectId}`, label: "documents_research" });
       }
     }
 

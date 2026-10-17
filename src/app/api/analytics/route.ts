@@ -98,7 +98,9 @@ export async function POST(req: Request) {
 
     const tasksPlanned = tasksInPeriod.length;
     const tasksCompleted = tasksInPeriod.filter((t) => t.status === "COMPLETED").length;
-    const totalFocusMin = focusSessionsInPeriod.reduce((acc, f) => acc + f.actualMinutes, 0);
+    const totalFocusMin = focusSessionsInPeriod
+      .filter((f) => f.completed)
+      .reduce((acc, f) => acc + f.actualMinutes, 0);
     const revisionsMade = revisionsInPeriod.length;
 
     const review = await prisma.productivityReview.create({

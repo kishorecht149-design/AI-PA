@@ -168,36 +168,91 @@ export const eventBus = new AmahasEventBus();
 // Canonical Cross-Module Handlers (Integrations A, B, C, D)
 // =============================================================================
 
-// Handler A1: When a task is completed, update linked project progress if applicable
+// Handler A1: When a task is completed, update linked project & goal progress, complete timeblocks, and resolve unread reminders
 eventBus.subscribe("task.completed", async (event) => {
   const { taskId, projectId } = event.payload;
-  if (!projectId || !prisma.project) return;
 
-  try {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, userId: event.userId },
-      include: {
-        tasks: { select: { id: true, status: true } },
-        milestones: { select: { id: true, completed: true } },
-      },
-    });
-
-    if (project) {
-      const totalUnits = project.tasks.length + project.milestones.length;
-      const completedUnits =
-        project.tasks.filter((t) => t.status === "COMPLETED").length +
-        project.milestones.filter((m) => m.completed).length;
-
-      const progress = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
-      if (progress === 100 && project.status === "ACTIVE") {
-        await prisma.project.update({
-          where: { id: projectId },
-          data: { status: "COMPLETED" },
-        });
-      }
+  // 1. Mark linked TimeBlocks completed
+  if (taskId && prisma.timeBlock) {
+    try {
+      await prisma.timeBlock.updateMany({
+        where: { taskId, userId: event.userId },
+        data: { completed: true },
+      });
+    } catch (tbErr: any) {
+      console.warn(`[Integration A] Error completing timeblock for task ${taskId}: ${tbErr.message}`);
     }
-  } catch (err: any) {
-    console.warn(`[Integration A] Error updating project on task.completed: ${err.message}`);
+  }
+
+  // 2. Mark unread reminder notifications for this task as read
+  if (taskId && prisma.notification) {
+    try {
+      await prisma.notification.updateMany({
+        where: {
+          userId: event.userId,
+          link: { contains: taskId },
+          isRead: false,
+        },
+        data: { isRead: true },
+      });
+    } catch (notifErr: any) {
+      console.warn(`[Integration A] Error resolving notifications for task ${taskId}: ${notifErr.message}`);
+    }
+  }
+
+  // 3. Recalculate linked Project and Goal progress if projectId is present
+  if (projectId && prisma.project) {
+    try {
+      const project = await prisma.project.findFirst({
+        where: { id: projectId, userId: event.userId },
+        include: {
+          tasks: { select: { id: true, status: true } },
+          milestones: { select: { id: true, completed: true } },
+        },
+      });
+
+      if (project) {
+        const totalUnits = project.tasks.length + project.milestones.length;
+        const completedUnits =
+          project.tasks.filter((t) => t.status === "COMPLETED").length +
+          project.milestones.filter((m) => m.completed).length;
+
+        const progress = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
+        if (progress === 100 && project.status === "ACTIVE") {
+          await prisma.project.update({
+            where: { id: projectId },
+            data: { status: "COMPLETED" },
+          });
+        }
+
+        // Synchronize linked Goals
+        if (prisma.goal) {
+          const linkedGoals = await prisma.goal.findMany({
+            where: { projectId, userId: event.userId },
+            include: { milestones: true },
+          });
+
+          for (const goal of linkedGoals) {
+            let goalProgress = progress;
+            if (goal.milestones.length > 0) {
+              const doneM = goal.milestones.filter((m) => m.completed).length;
+              goalProgress = Math.round((doneM / goal.milestones.length) * 100);
+            }
+            if (goalProgress !== goal.progressPct) {
+              await prisma.goal.update({
+                where: { id: goal.id },
+                data: {
+                  progressPct: goalProgress,
+                  status: goalProgress === 100 ? "ACHIEVED" : goal.status,
+                },
+              });
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[Integration A] Error updating project/goals on task.completed: ${err.message}`);
+    }
   }
 });
 
@@ -229,13 +284,17 @@ eventBus.subscribe("task.rescheduled", async (event) => {
 });
 
 // Handler B1: When a focus session completes on a syllabus topic, update revision readiness
+// Note: Academic mastery is determined strictly by SM-2 ratings; timer only marks lastStudiedAt and IN_PROGRESS
 eventBus.subscribe("focus_session.completed", async (event) => {
-  const { topicId, durationMinutes } = event.payload;
+  const { topicId } = event.payload;
   if (!topicId || !prisma.syllabusTopic) return;
 
   try {
-    const topic = await prisma.syllabusTopic.findUnique({
-      where: { id: topicId },
+    const topic = await prisma.syllabusTopic.findFirst({
+      where: {
+        id: topicId,
+        unit: { course: { userId: event.userId } },
+      },
     });
     if (topic) {
       await prisma.syllabusTopic.update({
@@ -248,5 +307,92 @@ eventBus.subscribe("focus_session.completed", async (event) => {
     }
   } catch (err: any) {
     console.warn(`[Integration B] Error updating topic on focus_session.completed: ${err.message}`);
+  }
+});
+
+// Handler B2: When an academic revision is scheduled, create or update a revision reminder
+eventBus.subscribe("academic_revision.scheduled", async (event) => {
+  const { topicId, nextRevisionDate, topicTitle, courseName } = event.payload;
+  if (!topicId || !prisma.notification) return;
+
+  try {
+    const link = `/academics?topicId=${topicId}`;
+    const existing = await prisma.notification.findFirst({
+      where: {
+        userId: event.userId,
+        link,
+        isRead: false,
+      },
+    });
+
+    const title = `Revision Due: ${topicTitle || "Academic Topic"}`;
+    const dateStr = nextRevisionDate ? new Date(nextRevisionDate).toLocaleDateString() : "soon";
+    const message = `Spaced repetition revision scheduled for ${topicTitle || "topic"}${
+      courseName ? ` in ${courseName}` : ""
+    }. Due: ${dateStr}.`;
+
+    if (existing) {
+      await prisma.notification.update({
+        where: { id: existing.id },
+        data: {
+          title,
+          message,
+          category: "REVISION",
+        },
+      });
+    } else {
+      await prisma.notification.create({
+        data: {
+          userId: event.userId,
+          category: "REVISION",
+          title,
+          message,
+          link,
+          isRead: false,
+        },
+      });
+    }
+  } catch (err: any) {
+    console.warn(`[Integration B] Error scheduling revision notification: ${err.message}`);
+  }
+});
+
+// Handler D1: When a habit is completed, update aligned goal milestones if present
+eventBus.subscribe("habit.completed", async (event) => {
+  const { habitId, habitName } = event.payload;
+  if (!habitId || !habitName || !prisma.goal) return;
+
+  try {
+    const matchingGoals = await prisma.goal.findMany({
+      where: {
+        userId: event.userId,
+        status: "IN_PROGRESS",
+      },
+      include: { milestones: true },
+    });
+
+    for (const goal of matchingGoals) {
+      const pendingMilestone = goal.milestones.find(
+        (m) => !m.completed && m.title.toLowerCase().includes(habitName.toLowerCase())
+      );
+      if (pendingMilestone) {
+        await prisma.goalMilestone.update({
+          where: { id: pendingMilestone.id },
+          data: { completed: true },
+        });
+        const total = goal.milestones.length;
+        const done = goal.milestones.filter((m) => m.completed || m.id === pendingMilestone.id).length;
+        const progressPct = total > 0 ? Math.round((done / total) * 100) : 100;
+        await prisma.goal.update({
+          where: { id: goal.id },
+          data: {
+            progressPct,
+            status: progressPct === 100 ? "ACHIEVED" : "IN_PROGRESS",
+          },
+        });
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[Integration D] Error updating goal on habit.completed: ${err.message}`);
   }
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiUserId } from "@/lib/auth";
 import { calculateSM2 } from "@/lib/spaced-repetition";
+import { eventBus } from "@/lib/events";
 
 export async function GET() {
   try {
@@ -139,6 +140,16 @@ export async function POST(req: Request) {
         },
       }),
     ]);
+
+    // Workflow B: Schedule/update revision notification via typed event bus
+    eventBus
+      .publish("academic_revision.scheduled", topic.id, userId, {
+        topicId: topic.id,
+        topicTitle: topic.title,
+        courseName: topic.unit?.course?.name,
+        nextRevisionDate: sm2.nextReviewDate,
+      })
+      .catch(() => {});
 
     return NextResponse.json({
       success: true,

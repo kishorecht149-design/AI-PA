@@ -46,6 +46,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
+    let validProjectId: string | null = null;
+    if (projectId) {
+      const p = await prisma.project.findFirst({ where: { id: projectId, userId } });
+      if (p) validProjectId = p.id;
+    }
+
+    let validCourseId: string | null = null;
+    if (courseId) {
+      const c = await prisma.course.findFirst({ where: { id: courseId, userId } });
+      if (c) validCourseId = c.id;
+    }
+
+    let validResearchProjectId: string | null = null;
+    if (researchProjectId) {
+      const rp = await prisma.researchProject.findFirst({ where: { id: researchProjectId, userId } });
+      if (rp) validResearchProjectId = rp.id;
+    }
+
     const task = await prisma.task.create({
       data: {
         userId,
@@ -54,9 +72,9 @@ export async function POST(req: Request) {
         priority: priority || "MEDIUM",
         dueDate: dueDate ? new Date(dueDate) : null,
         estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : null,
-        courseId: courseId || null,
-        projectId: projectId || null,
-        researchProjectId: researchProjectId || null,
+        courseId: validCourseId,
+        projectId: validProjectId,
+        researchProjectId: validResearchProjectId,
       },
       include: {
         project: true,

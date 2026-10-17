@@ -1,6 +1,7 @@
 import { prisma } from "./prisma.ts";
 import { calculateSM2 } from "./spaced-repetition.ts";
 import { decodeHtmlEntities } from "./format-utils.ts";
+import { eventBus } from "./events.ts";
 
 export interface ToolDefinition {
   name: string;
@@ -460,7 +461,7 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
 
   create_task: {
     name: "create_task",
-    description: "Create a new student task with priority, estimated minutes, due date, or course code.",
+    description: "Create a new student task with priority, estimated minutes, due date, course code, or project.",
     isReadOnly: false,
     isDestructive: false,
     parameters: {
@@ -472,6 +473,8 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
         estimatedMinutes: { type: "number", description: "Estimated duration in minutes" },
         dueDate: { type: "string", description: "ISO date string for due date" },
         courseCode: { type: "string", description: "Optional course code e.g. CS301" },
+        projectId: { type: "string", description: "Optional project ID to link this task to" },
+        projectName: { type: "string", description: "Optional project name to link this task to" },
       },
       required: ["title"],
     },
@@ -484,6 +487,19 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
         if (course) courseId = course.id;
       }
 
+      let projectId: string | undefined;
+      if (args.projectId) {
+        const proj = await prisma.project.findFirst({
+          where: { id: args.projectId, userId },
+        });
+        if (proj) projectId = proj.id;
+      } else if (args.projectName) {
+        const proj = await prisma.project.findFirst({
+          where: { name: { contains: args.projectName }, userId },
+        });
+        if (proj) projectId = proj.id;
+      }
+
       const task = await prisma.task.create({
         data: {
           userId,
@@ -493,6 +509,7 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
           estimatedMinutes: args.estimatedMinutes ? Number(args.estimatedMinutes) : null,
           dueDate: args.dueDate ? new Date(args.dueDate) : null,
           courseId,
+          projectId,
         },
       });
       return { success: true, message: `Task created: "${task.title}"`, task };
@@ -524,6 +541,7 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
 
       const updateData: any = {};
       if (args.title) updateData.title = args.title.trim();
+      const isNewCompletion = args.status === "COMPLETED" && task.status !== "COMPLETED";
       if (args.status) {
         updateData.status = args.status;
         if (args.status === "COMPLETED") updateData.completedAt = new Date();
@@ -536,6 +554,23 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
         where: { id: args.taskId },
         data: updateData,
       });
+
+      // Workflow A: Publish task.completed event when task becomes COMPLETED
+      if (isNewCompletion) {
+        eventBus.publish("task.completed", args.taskId, userId, {
+          taskId: args.taskId,
+          projectId: task.projectId,
+        }).catch(() => {});
+      }
+
+      // Workflow A: Publish task.rescheduled event if due date changes
+      if (args.dueDate && (!task.dueDate || new Date(args.dueDate).getTime() !== new Date(task.dueDate).getTime())) {
+        eventBus.publish("task.rescheduled", args.taskId, userId, {
+          taskId: args.taskId,
+          newDueDate: args.dueDate,
+        }).catch(() => {});
+      }
+
       return { success: true, message: `Task "${updated.title}" updated (${updated.status})`, task: updated };
     },
   },
@@ -602,7 +637,49 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
     execute: async (userId, args) => {
       const title = String(args.title).trim();
       const message = args.message ? String(args.message).trim() : title;
+
+      if (args.taskId) {
+        try {
+          const task = await prisma.task.findFirst({
+            where: { id: String(args.taskId), userId },
+          });
+          if (task === null) {
+            throw new Error("Task not found or unauthorized");
+          }
+        } catch (taskErr: any) {
+          if (taskErr.message === "Task not found or unauthorized") throw taskErr;
+        }
+      }
+
       const link = args.taskId ? `/tasks?id=${args.taskId}` : null;
+
+      // Deduplicate unread reminders linked to the same task
+      if (link) {
+        try {
+          const existingNotif = await prisma.notification.findFirst({
+            where: { userId, link, isRead: false },
+          });
+          if (existingNotif) {
+            const updatedNotif = await prisma.notification.update({
+              where: { id: existingNotif.id },
+              data: {
+                title,
+                message,
+                category: args.category || existingNotif.category,
+              },
+            });
+            return {
+              success: true,
+              message: `Reminder updated: "${title}".`,
+              reminder: updatedNotif,
+              calendarEvent: null,
+              deduplicated: true,
+            };
+          }
+        } catch (dbErr: any) {
+          // If offline DB or findFirst unmocked, proceed to create
+        }
+      }
 
       const notif = await prisma.notification.create({
         data: {
@@ -709,6 +786,60 @@ export const APPLICATION_TOOLS: Record<string, ToolDefinition> = {
         select: { id: true, title: true, tags: true, isPinned: true, updatedAt: true },
       });
       return { count: notes.length, notes };
+    },
+  },
+
+  create_note: {
+    name: "create_note",
+    description: "Create a structured note or knowledge entry, optionally linking to a project, course, or research project.",
+    isReadOnly: false,
+    isDestructive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Title of the note" },
+        content: { type: "string", description: "Markdown content of the note" },
+        tags: { type: "string", description: "Optional comma-separated tags" },
+        projectId: { type: "string", description: "Optional project ID to link to" },
+        courseId: { type: "string", description: "Optional course ID to link to" },
+        researchProjectId: { type: "string", description: "Optional research project ID to link to" },
+      },
+      required: ["title"],
+    },
+    execute: async (userId, args) => {
+      let validProjectId = null;
+      if (args.projectId) {
+        const p = await prisma.project.findFirst({ where: { id: args.projectId, userId } });
+        if (p) validProjectId = p.id;
+      }
+      let validCourseId = null;
+      if (args.courseId) {
+        const c = await prisma.course.findFirst({ where: { id: args.courseId, userId } });
+        if (c) validCourseId = c.id;
+      }
+      let validResearchProjectId = null;
+      if (args.researchProjectId) {
+        const rp = await prisma.researchProject.findFirst({ where: { id: args.researchProjectId, userId } });
+        if (rp) validResearchProjectId = rp.id;
+      }
+
+      const note = await prisma.note.create({
+        data: {
+          userId,
+          title: args.title.trim(),
+          contentMarkdown: args.content ? String(args.content).trim() : "",
+          tags: args.tags || null,
+          projectId: validProjectId,
+          courseId: validCourseId,
+          researchProjectId: validResearchProjectId,
+        },
+      });
+
+      return {
+        success: true,
+        message: `Note created: "${note.title}".`,
+        note,
+      };
     },
   },
 

@@ -27,6 +27,7 @@ export async function GET(req: Request) {
           collection: true,
           course: { select: { code: true, name: true } },
           project: { select: { name: true } },
+          researchProject: { select: { id: true, title: true } },
         },
       }),
       prisma.noteCollection.findMany({
@@ -46,7 +47,25 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { title, contentMarkdown, collectionId, courseId, tags, isPinned } = body;
+    const { title, contentMarkdown, collectionId, courseId, projectId, researchProjectId, tags, isPinned } = body;
+
+    let validCourseId = null;
+    if (courseId) {
+      const c = await prisma.course.findFirst({ where: { id: courseId, userId } });
+      if (c) validCourseId = c.id;
+    }
+
+    let validProjectId = null;
+    if (projectId) {
+      const p = await prisma.project.findFirst({ where: { id: projectId, userId } });
+      if (p) validProjectId = p.id;
+    }
+
+    let validResearchProjectId = null;
+    if (researchProjectId) {
+      const rp = await prisma.researchProject.findFirst({ where: { id: researchProjectId, userId } });
+      if (rp) validResearchProjectId = rp.id;
+    }
 
     const note = await prisma.note.create({
       data: {
@@ -54,7 +73,9 @@ export async function POST(req: Request) {
         title: title || "Untitled Note",
         contentMarkdown: contentMarkdown || "",
         collectionId: collectionId || null,
-        courseId: courseId || null,
+        courseId: validCourseId,
+        projectId: validProjectId,
+        researchProjectId: validResearchProjectId,
         tags: tags || null,
         isPinned: !!isPinned,
       },
@@ -72,7 +93,7 @@ export async function PATCH(req: Request) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { id, title, contentMarkdown, isPinned } = body;
+    const { id, title, contentMarkdown, isPinned, courseId, projectId, researchProjectId } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Note ID required" }, { status: 400 });
@@ -85,12 +106,42 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Note not found or unauthorized" }, { status: 404 });
     }
 
+    let validCourseId = undefined;
+    if (courseId !== undefined) {
+      if (courseId === null) validCourseId = null;
+      else {
+        const c = await prisma.course.findFirst({ where: { id: courseId, userId } });
+        if (c) validCourseId = c.id;
+      }
+    }
+
+    let validProjectId = undefined;
+    if (projectId !== undefined) {
+      if (projectId === null) validProjectId = null;
+      else {
+        const p = await prisma.project.findFirst({ where: { id: projectId, userId } });
+        if (p) validProjectId = p.id;
+      }
+    }
+
+    let validResearchProjectId = undefined;
+    if (researchProjectId !== undefined) {
+      if (researchProjectId === null) validResearchProjectId = null;
+      else {
+        const rp = await prisma.researchProject.findFirst({ where: { id: researchProjectId, userId } });
+        if (rp) validResearchProjectId = rp.id;
+      }
+    }
+
     const updated = await prisma.note.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(contentMarkdown !== undefined && { contentMarkdown }),
         ...(isPinned !== undefined && { isPinned }),
+        ...(validCourseId !== undefined && { courseId: validCourseId }),
+        ...(validProjectId !== undefined && { projectId: validProjectId }),
+        ...(validResearchProjectId !== undefined && { researchProjectId: validResearchProjectId }),
       },
     });
 
